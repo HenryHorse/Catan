@@ -6,7 +6,8 @@
 
 
 import math
-import matplotlib.pyplot as plt
+import pygame
+
 
 
 class TileVertex:
@@ -27,6 +28,7 @@ class RoadVertex:
         self.y = y
         self.adjacent_roads = []
         self.adjacent_tiles = []
+        self.harbor = False
 
     def add_adjacent_tile(self, tile_vertex):
         self.adjacent_tiles.append(tile_vertex)
@@ -99,26 +101,69 @@ def generate_hex_board(center, size):
     return hex_centers, vertex_positions
 
 
+def generate_harbors(centers, vertices):
+    for vertex in vertices:
+        # if len(vertex.adjacent_tiles) == 2:
+        #     vertex.harbor = True
+        if len(vertex.adjacent_roads) == 2:
+            vertex.harbor = True
+
+
 # Constants
-CENTER = TileVertex(0, 0)
-SIZE = 10 
+SCREEN_SIZE = (800, 800)
+BACKGROUND_COLOR = (0, 0, 255)
+TILE_COLOR = (154, 205, 50)
+ROAD_COLOR = (0, 0, 0)
+CENTER = TileVertex(400, 400)  # Center of the screen
+SIZE = 80  # Adjusted for better visualization in the Pygame window
+
+# Screen setup
+screen = pygame.display.set_mode(SCREEN_SIZE)
+pygame.display.set_caption('Hexagonal Grid Visualization')
 
 # Generate board
 centers, vertices = generate_hex_board(CENTER, SIZE)
+generate_harbors(centers, vertices)
 
-# Plotting for visualization
-plt.figure(figsize=(8, 8))
-for vertex in vertices:
-    plt.scatter(vertex.x, vertex.y, c='blue')  # plot vertices
-    for adj in vertex.adjacent_tiles:
-        plt.plot([vertex.x, adj.x], [vertex.y, adj.y], 'k-', color='blue') 
-    for adj in vertex.adjacent_roads:
-        plt.plot([vertex.x, adj.x], [vertex.y, adj.y], 'k-', color='red')   
-for center in centers:
-    plt.scatter(center.x, center.y, c='red') # plot centers
-    for adj in center.adjacent_tiles:
-        plt.plot([center.x, adj.x], [center.y, adj.y], 'k-')  
-plt.gca().set_aspect('equal', adjustable='box')
-plt.grid(True)
-plt.show()
+pygame.init()
 
+
+
+color_map = {
+    'ore': (129, 128, 128),
+    'wood': (34, 139, 34),
+    'brick': (178, 34, 34),
+    'wheat': (218, 165, 32),
+    'sheep': (154, 205, 50)
+}
+
+def draw_hexagon(surface, fill_color, outline_color, center, size):
+    vertices = [hex_corner(center, size, i) for i in range(6)]
+    pygame.draw.polygon(surface, fill_color, vertices)
+    pygame.draw.polygon(surface, outline_color, vertices, 2)
+
+def draw_grid():
+    screen.fill(BACKGROUND_COLOR)
+    
+    for center in centers:
+        draw_hexagon(screen, TILE_COLOR, ROAD_COLOR, center, SIZE)
+    
+    for vertex in vertices:
+        if vertex.harbor:
+            pygame.draw.circle(screen, (255, 255, 255), (int(vertex.x), int(vertex.y)), 7)
+        else:
+            pygame.draw.circle(screen, ROAD_COLOR, (int(vertex.x), int(vertex.y)), 7)
+        for adj in vertex.adjacent_roads:
+            pygame.draw.line(screen, ROAD_COLOR, (vertex.x, vertex.y), (adj.x, adj.y), 5)
+
+# Main loop
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+
+    draw_grid()
+    pygame.display.flip()
+
+pygame.quit()
