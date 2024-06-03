@@ -8,7 +8,7 @@
 import math
 import pygame
 
-
+coords = []
 
 class TileVertex:
     def __init__(self, x, y):
@@ -153,6 +153,8 @@ def draw_grid():
             pygame.draw.circle(screen, (255, 255, 255), (int(vertex.x), int(vertex.y)), 7)
         else:
             pygame.draw.circle(screen, ROAD_COLOR, (int(vertex.x), int(vertex.y)), 7)
+            if ((int(vertex.x), int(vertex.y))) not in coords:
+                coords.append((int(vertex.x), int(vertex.y)))
         for adj in vertex.adjacent_roads:
             pygame.draw.line(screen, ROAD_COLOR, (vertex.x, vertex.y), (adj.x, adj.y), 5)
 
@@ -167,3 +169,5 @@ while running:
     pygame.display.flip()
 
 pygame.quit()
+
+print("x and y coords:", coords)
