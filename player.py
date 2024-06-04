@@ -1,4 +1,5 @@
 from catan import *
+import random
 
 class Game:
     def __init__(self):
@@ -79,8 +80,39 @@ class Player:
     def get_victory_points(self):
         return self.victory_points
 
-def turn():
-    # roll dice
-    # trade
-    # build
-    pass
+def roll_dice(n):
+    '''rolls dice n times and adds them'''
+    total = 0
+    for i in range(n):
+        total += random.randint(1, 6)
+    return total
+
+def turn(player):
+    if player.victory_points == 10:
+        return True
+    else:
+        # resource production/roll dice
+        tile_number = roll_dice(2)
+        # note: look for this in centers
+        # if the RoadVertex correspondng to settlement.location has tile w tile_number in the adjacent tiles, then give resources to the player.
+        if tile_number in map(settlement.location, player.settlements):
+            pass
+        # trade
+        # build
+
+
+def main():
+    # player_red = Player('red')
+    # player_blue = Player('blue')
+
+    # build_loc = # a vertex in road_vertices
+    # if unbuilt_settlements > 0:
+    #     build_settlement(build_loc)
+    tile_vertices = get_tile_vertices()
+    road_vertices = get_road_vertices()
+    print("\n\ntile vertices:", tile_vertices, "list size", len(tile_vertices))
+    print("\n\nroad vertices:", road_vertices, "list size", len(road_vertices))
+
+
+if __name__ == '__main__':
+    main()
