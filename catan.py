@@ -9,8 +9,6 @@ import math
 import pygame
 from diceroll import *
 
-
-
 class TileVertex:
     def __init__(self, x, y):
         self.x = x
@@ -251,6 +249,11 @@ def draw_grid():
         else:
             pygame.draw.circle(screen, ROAD_COLOR, (int(vertex.x), int(vertex.y)), 4)
 
+def get_tile_vertices():
+    return centers
+def get_road_vertices():
+    return vertices # can get all coords from this
+
 # Main loop
 running = True
 while running:
@@ -265,3 +268,8 @@ while running:
     pygame.display.flip()
 
 pygame.quit()
+
+# tile_vertices = get_tile_vertices()
+# road_vertices = get_road_vertices()
+# print("\n\ntile vertices:", tile_vertices, "list size", len(tile_vertices))
+# print("\n\nroad vertices:", road_vertices, "list size", len(road_vertices))
