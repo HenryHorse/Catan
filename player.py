@@ -27,11 +27,11 @@ class Player:
     def __init__(self, color):
         self.color = color
         self.resources = {
-            "lumber": 0,
-            "brick": 0,
-            "wool": 0,
-            "grain": 0,
-            "ore": 0
+            'forest': 0,
+            'grain': 0,
+            'sheep': 0,
+            'ore': 0,
+            'brick': 0,
         }
         self.dev_cards = []
 
@@ -87,31 +87,40 @@ def roll_dice(n):
         total += random.randint(1, 6)
     return total
 
-def turn(player):
+def turn(player, tile_vertices, road_vertices):
     if player.victory_points == 10:
         return True
     else:
-        # resource production/roll dice
+        # 1) resource production/roll dice
         tile_number = roll_dice(2)
-        # note: look for this in centers
         # if the RoadVertex correspondng to settlement.location has tile w tile_number in the adjacent tiles, then give resources to the player.
-        if tile_number in map(settlement.location, player.settlements):
-            pass
-        # trade
-        # build
+        my_settlement_locs = {}
+        for s in self.settlements:
+            my_settlement_locs.add(s.location)
+        for tile in tile_vertices:
+            if tile.number == tile_number and (tile.x, tile.y) in my_settlement_locs:
+                self.resources[tile.resource] += tile.number
+        # 2) trade
+        # 3) build
 
 
 def main():
-    # player_red = Player('red')
-    # player_blue = Player('blue')
+    player_red = Player('red')
+    player_blue = Player('blue')
 
-    # build_loc = # a vertex in road_vertices
-    # if unbuilt_settlements > 0:
-    #     build_settlement(build_loc)
+    build_loc = (261.4359353944899, 400.0)
+    if unbuilt_settlements > 0:
+        build_settlement(build_loc)
+
+    # testing stuff
     tile_vertices = get_tile_vertices()
     road_vertices = get_road_vertices()
+    for tile in tile_vertices:
+        print("center number: ", tile.number)
+        print("\n(x,y): ", tile.x, tile.y)
     print("\n\ntile vertices:", tile_vertices, "list size", len(tile_vertices))
     print("\n\nroad vertices:", road_vertices, "list size", len(road_vertices))
+
 
 
 if __name__ == '__main__':
