@@ -8,8 +8,6 @@
 import math
 import pygame
 
-coords = []
-
 class TileVertex:
     def __init__(self, x, y):
         self.x = x
@@ -153,10 +151,13 @@ def draw_grid():
             pygame.draw.circle(screen, (255, 255, 255), (int(vertex.x), int(vertex.y)), 7)
         else:
             pygame.draw.circle(screen, ROAD_COLOR, (int(vertex.x), int(vertex.y)), 7)
-            if ((int(vertex.x), int(vertex.y))) not in coords:
-                coords.append((int(vertex.x), int(vertex.y)))
         for adj in vertex.adjacent_roads:
             pygame.draw.line(screen, ROAD_COLOR, (vertex.x, vertex.y), (adj.x, adj.y), 5)
+
+def get_tile_vertices():
+    return centers
+def get_road_vertices():
+    return vertices # can get all coords from this
 
 # Main loop
 running = True
@@ -170,4 +171,7 @@ while running:
 
 pygame.quit()
 
-print("x and y coords:", coords)
+# tile_vertices = get_tile_vertices()
+# road_vertices = get_road_vertices()
+# print("\n\ntile vertices:", tile_vertices, "list size", len(tile_vertices))
+# print("\n\nroad vertices:", road_vertices, "list size", len(road_vertices))
