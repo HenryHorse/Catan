@@ -7,6 +7,7 @@
 
 import math
 import pygame
+from diceroll import *
 
 
 
@@ -14,10 +15,18 @@ class TileVertex:
     def __init__(self, x, y):
         self.x = x
         self.y = y
+        self.adjacent_roads = []
         self.adjacent_tiles = []
+        self.resource = None
+        self.number = None
 
     def add_adjacent_tile(self, tile_vertex):
-        self.adjacent_tiles.append(tile_vertex)
+        if tile_vertex not in self.adjacent_tiles:
+            self.adjacent_tiles.append(tile_vertex)
+
+    def add_adjacent_road(self, road_vertex):
+        if road_vertex not in self.adjacent_roads:
+            self.adjacent_roads.append(road_vertex)
 
     def __repr__(self):
         return "Tile Vert: (" + str(self.x) + "," + str(self.y) + ")"
@@ -29,12 +38,16 @@ class RoadVertex:
         self.adjacent_roads = []
         self.adjacent_tiles = []
         self.harbor = False
+        self.harbor_partner = None
+        self.harbor_type = None
 
     def add_adjacent_tile(self, tile_vertex):
-        self.adjacent_tiles.append(tile_vertex)
+        if tile_vertex not in self.adjacent_tiles:
+            self.adjacent_tiles.append(tile_vertex)
 
     def add_adjacent_road(self, road_vertex):
-        self.adjacent_roads.append(road_vertex)
+        if road_vertex not in self.adjacent_roads:
+            self.adjacent_roads.append(road_vertex)
 
     def __repr__(self):
         return "Road Vert: (" + str(self.x) + "," + str(self.y) + ")"
@@ -86,6 +99,7 @@ def generate_hex_board(center, size):
                     adj_tile.add_adjacent_tile(center)
                     center.add_adjacent_tile(adj_tile)
             visited_verts[rounded_hc].add_adjacent_tile(center)
+            center.add_adjacent_road(visited_verts[rounded_hc])
 
 
             if (last is not None):
@@ -101,17 +115,92 @@ def generate_hex_board(center, size):
     return hex_centers, vertex_positions
 
 
-def generate_harbors(centers, vertices):
-    for vertex in vertices:
-        # if len(vertex.adjacent_tiles) == 2:
-        #     vertex.harbor = True
+
+        
+def generate_possible_harbors(centers, vertices):
+    potential_harbor_tiles = []
+    for center in centers:
+        if (len(center.adjacent_tiles) <= 4):
+            potential_harbor_tiles.append(center)
+    return potential_harbor_tiles
+
+# Function to get the vertices at the outer edge of the board
+def get_coast_vertices(tile):
+    coast_vertices = []
+    for vertex in tile.adjacent_roads:
+        if len(vertex.adjacent_tiles) == 2 or len(vertex.adjacent_roads) == 2:
+            coast_vertices.append(vertex)
+    return coast_vertices
+
+# Function to get the vertices of a tile that are not shared with any other tile
+def get_solo_vertices(tile):
+    coast_vertices = []
+    for vertex in tile.adjacent_roads:
         if len(vertex.adjacent_roads) == 2:
-            vertex.harbor = True
+            coast_vertices.append(vertex)
+    return coast_vertices
+
+def choose_harbors(potential_harbor_tiles):
+    harbor_types = ['3:1'] * 4 + ['2:1 ore', '2:1 wood', '2:1 brick', '2:1 grain', '2:1 sheep']
+    chosen_harbor_vertices = []
+
+
+
+    # Loop to choose the number of solo harbors (harbors that are exclusive to one tile)
+    while (len(chosen_harbor_vertices) < 8):
+        chosen = random.choice(potential_harbor_tiles)
+        chosen_vertices = get_solo_vertices(chosen)
+        if (len(chosen_vertices) >= 2):
+            harbor_verts = random.sample(chosen_vertices, 2)
+            while not (harbor_verts[0] in harbor_verts[1].adjacent_roads and harbor_verts[1] in harbor_verts[0].adjacent_roads) or (harbor_verts[0] in chosen_harbor_vertices or harbor_verts[1] in chosen_harbor_vertices):
+                harbor_verts = random.sample(chosen_coast_verts, 2)
+            harbor_verts[0].harbor = True
+            harbor_verts[0].harbor_partner = harbor_verts[1]
+            harbor_verts[1].harbor = True
+            harbor_verts[1].harbor_partner = harbor_verts[0]
+
+            harbor_type = random.choice(harbor_types)
+            harbor_verts[0].harbor_type = harbor_type
+            harbor_verts[1].harbor_type = harbor_type
+            harbor_types.remove(harbor_type)
+
+            chosen_harbor_vertices.append(harbor_verts[0])
+            chosen_harbor_vertices.append(harbor_verts[1])
+            potential_harbor_tiles.remove(chosen)
+             
+
+    # After the solo harbors are chosen, choose the rest of the harbors (can be between tiles)
+    while (len(chosen_harbor_vertices) < 18):
+        chosen = random.choice(potential_harbor_tiles)
+            
+        chosen_coast_verts = get_coast_vertices(chosen)
+        harbor_verts = random.sample(chosen_coast_verts, 2)
+        while not (harbor_verts[0] in harbor_verts[1].adjacent_roads and harbor_verts[1] in harbor_verts[0].adjacent_roads) or (harbor_verts[0] in chosen_harbor_vertices or harbor_verts[1] in chosen_harbor_vertices):
+            harbor_verts = random.sample(chosen_coast_verts, 2)
+        harbor_verts[0].harbor = True
+        harbor_verts[0].harbor_partner = harbor_verts[1]
+        harbor_verts[1].harbor = True
+        harbor_verts[1].harbor_partner = harbor_verts[0]
+        chosen_harbor_vertices.append(harbor_verts[0])
+        chosen_harbor_vertices.append(harbor_verts[1])
+
+
+        potential_harbor_tiles.remove(chosen)
+
+                
+def initialize_game():
+    centers, vertices = generate_hex_board(CENTER, SIZE)
+    possible_harbors = generate_possible_harbors(centers, vertices)
+    choose_harbors(possible_harbors)
+    initialize_tiles(centers)
+    return centers, vertices
+
+    
 
 
 # Constants
 SCREEN_SIZE = (800, 800)
-BACKGROUND_COLOR = (0, 0, 255)
+BACKGROUND_COLOR = (0, 160, 255)
 TILE_COLOR = (154, 205, 50)
 ROAD_COLOR = (0, 0, 0)
 CENTER = TileVertex(400, 400)  # Center of the screen
@@ -122,19 +211,22 @@ screen = pygame.display.set_mode(SCREEN_SIZE)
 pygame.display.set_caption('Hexagonal Grid Visualization')
 
 # Generate board
-centers, vertices = generate_hex_board(CENTER, SIZE)
-generate_harbors(centers, vertices)
+centers, vertices = initialize_game()
 
 pygame.init()
+pygame.font.init()
+
+font = pygame.font.SysFont('Arial', 24)
 
 
 
 color_map = {
     'ore': (129, 128, 128),
-    'wood': (34, 139, 34),
+    'forest': (34, 139, 34),
     'brick': (178, 34, 34),
-    'wheat': (218, 165, 32),
-    'sheep': (154, 205, 50)
+    'grain': (220, 165, 32),
+    'sheep': (154, 205, 50),
+    'desert': (255, 215, 90)
 }
 
 def draw_hexagon(surface, fill_color, outline_color, center, size):
@@ -144,17 +236,20 @@ def draw_hexagon(surface, fill_color, outline_color, center, size):
 
 def draw_grid():
     screen.fill(BACKGROUND_COLOR)
-    
+
     for center in centers:
-        draw_hexagon(screen, TILE_COLOR, ROAD_COLOR, center, SIZE)
+        draw_hexagon(screen, color_map[center.resource], ROAD_COLOR, center, SIZE)
+        if (center.number):
+            text_surface = font.render(str(center.number), True, ROAD_COLOR)
+            text_rect = text_surface.get_rect(center=(center.x, center.y))
+            screen.blit(text_surface, text_rect)
     
     for vertex in vertices:
         if vertex.harbor:
-            pygame.draw.circle(screen, (255, 255, 255), (int(vertex.x), int(vertex.y)), 7)
+            pygame.draw.circle(screen, (101, 67, 33), (int(vertex.x), int(vertex.y)), 6)
+            pygame.draw.line(screen, (101, 67, 33), (vertex.x, vertex.y), (vertex.harbor_partner.x, vertex.harbor_partner.y), 5)
         else:
-            pygame.draw.circle(screen, ROAD_COLOR, (int(vertex.x), int(vertex.y)), 7)
-        for adj in vertex.adjacent_roads:
-            pygame.draw.line(screen, ROAD_COLOR, (vertex.x, vertex.y), (adj.x, adj.y), 5)
+            pygame.draw.circle(screen, ROAD_COLOR, (int(vertex.x), int(vertex.y)), 4)
 
 # Main loop
 running = True
@@ -162,6 +257,9 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_r:
+                centers, vertices = initialize_game()
 
     draw_grid()
     pygame.display.flip()
