@@ -87,22 +87,32 @@ def roll_dice(n):
         total += random.randint(1, 6)
     return total
 
+' -------------------- Turn --------------------'
+
+def turn_roll_dice():
+    tile_number = roll_dice(2)
+    # if the RoadVertex correspondng to settlement.location has tile w tile_number in the adjacent tiles, then give resources to the player.
+    my_settlement_locs = {}
+    for s in self.settlements:
+        my_settlement_locs.add(s.location)
+    for tile in tile_vertices:
+        if tile.number == tile_number and (tile.x, tile.y) in my_settlement_locs:
+            self.resources[tile.resource] += tile.number
+
+def turn_trade():
+    pass
+def turn_build():
+    pass
+
 def turn(player, tile_vertices, road_vertices):
     if player.victory_points == 10:
         return True
     else:
         # 1) resource production/roll dice
-        tile_number = roll_dice(2)
-        # if the RoadVertex correspondng to settlement.location has tile w tile_number in the adjacent tiles, then give resources to the player.
-        my_settlement_locs = {}
-        for s in self.settlements:
-            my_settlement_locs.add(s.location)
-        for tile in tile_vertices:
-            if tile.number == tile_number and (tile.x, tile.y) in my_settlement_locs:
-                self.resources[tile.resource] += tile.number
+        turn_roll_dice()
         # 2) trade
-        # 3) build
 
+        # 3) build
 
 def main():
     player_red = Player('red')
