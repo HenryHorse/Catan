@@ -145,7 +145,7 @@ def choose_harbors(potential_harbor_tiles):
 
 
     # Loop to choose the number of solo harbors (harbors that are exclusive to one tile)
-    while (len(chosen_harbor_vertices) < 8):
+    while (len(chosen_harbor_vertices) < 10):
         chosen = random.choice(potential_harbor_tiles)
         chosen_vertices = get_solo_vertices(chosen)
         if (len(chosen_vertices) >= 2):
@@ -179,6 +179,13 @@ def choose_harbors(potential_harbor_tiles):
         harbor_verts[0].harbor_partner = harbor_verts[1]
         harbor_verts[1].harbor = True
         harbor_verts[1].harbor_partner = harbor_verts[0]
+
+
+        harbor_type = random.choice(harbor_types)
+        harbor_verts[0].harbor_type = harbor_type
+        harbor_verts[1].harbor_type = harbor_type
+        harbor_types.remove(harbor_type)
+
         chosen_harbor_vertices.append(harbor_verts[0])
         chosen_harbor_vertices.append(harbor_verts[1])
 
