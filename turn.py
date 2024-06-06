@@ -18,13 +18,13 @@ def turn(player, game):
         return True
     else:
         # 1) resource production/roll dice
-        turn_roll_dice()
+        turn_roll_dice(player, game.tile_vertices)
         # 2) trade
         turn_trade(player)
         # 3) build
         turn_build(player, game)
 
-def turn_roll_dice():
+def turn_roll_dice(player, tile_vertices):
     ''' gives player resources they own settlements on from the dice roll'''
     tile_number = roll_dice(2)
     # if the RoadVertex correspondng to settlement.location has tile w tile_number in the adjacent tiles, give resources to the player
@@ -72,12 +72,35 @@ def turn_build(player, game):
         location = find_city_location(game)
         player.build_city(location)
 
+# ---------- roll dice helper methods ----------
+
 def roll_dice(n):
     '''rolls dice n times and adds them'''
     total = 0
     for i in range(n):
         total += random.randint(1, 6)
     return total
+
+# ---------- trade helper methods ----------
+
+def can_maritime_trade(player, resource_needed):
+    # check for maritime trade: 4:1 ratio, give 4 resources to "bank", take 1
+    for resource, amount in player.resources.items(): # looping through key value pairs
+        if resource != resource_needed and amount >= 4:
+            return resource, 4
+    return None, 0
+
+def can_domestic_trade(player, resource_needed, players):
+    # attempt to trade with other players
+    for other_player in players:
+        if other_player != player:
+            for resource, amount in other_player.resources.items():
+                if resource == resource_needed and amount > 0:
+                    # assume 1:1 resource trade
+                    return other_player, resource
+    return None, None
+
+# ---------- build helper methods ----------
 
 def can_build_settlement(player):
     return (player.resources['brick'] >= 1 and 
