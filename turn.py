@@ -24,16 +24,17 @@ def turn(player, game):
         # 3) build
         turn_build(player, game)
 
-def turn_roll_dice(player, tile_vertices):
+def turn_roll_dice(game, tile_vertices):
     ''' gives player resources they own settlements on from the dice roll'''
     tile_number = roll_dice(2)
     # if the RoadVertex correspondng to settlement.location has tile w tile_number in the adjacent tiles, give resources to the player
-    my_settlement_locs = {}
-    for s in self.settlements:
-        my_settlement_locs.add(s.location)
-    for tile in tile_vertices:
-        if tile.number == tile_number and (tile.x, tile.y) in my_settlement_locs:
-            self.resources[tile.resource] += tile.number
+    for player in game.players:
+        player_settlement_locs = {}
+        for s in player.settlements:
+            player_settlement_locs.add(s.location)
+        for tile in tile_vertices:
+            if tile.number == tile_number and (tile.x, tile.y) in player_settlement_locs:
+                player.resources[tile.resource] += tile.number
 
 def turn_trade(player):
     ''' trade any excess resources for needed ones'''
