@@ -6,14 +6,14 @@ def main():
     player_blue = Player('blue')
 
     game = Game()
-    tile_vertices = get_tile_vertices()  # Define this function
-    road_vertices = get_road_vertices()  # Define this function
+    game.tile_vertices = get_tile_vertices()  
+    game.road_vertices = get_road_vertices()
 
-    while not turn(player_red, tile_vertices, road_vertices, game):
+    while not turn(player_red, game):
         pass
     print("Red player wins!")
 
-def turn(player, tile_vertices, road_vertices, game):
+def turn(player, game):
     if player.victory_points >= 10:
         return True
     else:
