@@ -36,8 +36,8 @@ class RoadVertex:
         self.adjacent_roads = []
         self.adjacent_tiles = []
         self.harbor = False
-        self.harbor_partner = None
         self.harbor_type = None
+        self.order = None
 
     def add_adjacent_tile(self, tile_vertex):
         if tile_vertex not in self.adjacent_tiles:
@@ -62,7 +62,7 @@ def hex_corner(center, size, corner):
 
 def generate_hex_board(center, size):
     hex_centers = [center]
-    vertex_positions = set()
+    vertex_positions = []
     visited_verts = {}
 
     directions = [
@@ -82,7 +82,6 @@ def generate_hex_board(center, size):
             for _ in range(ring):
                 curr = TileVertex(curr.x + directions[d][0], curr.y + directions[d][1])
                 hex_centers.append(curr)
-
 
     for center in hex_centers:
         last = None
@@ -104,7 +103,8 @@ def generate_hex_board(center, size):
                 visited_verts[rounded_hc].add_adjacent_road(last)
                 last.add_adjacent_road(visited_verts[rounded_hc])
             last = visited_verts[rounded_hc]
-            vertex_positions.add(visited_verts[rounded_hc])
+            if visited_verts[rounded_hc] not in vertex_positions:
+                vertex_positions.append(visited_verts[rounded_hc])
         hc = hex_corner(center, size, 0)
         rounded_hc = (round(hc[0]), round(hc[1]))
         last.add_adjacent_road(visited_verts[rounded_hc])
@@ -114,89 +114,44 @@ def generate_hex_board(center, size):
 
 
 
-        
-def generate_possible_harbors(centers, vertices):
-    potential_harbor_tiles = []
-    for center in centers:
-        if (len(center.adjacent_tiles) <= 4):
-            potential_harbor_tiles.append(center)
-    return potential_harbor_tiles
-
-# Function to get the vertices at the outer edge of the board
-def get_coast_vertices(tile):
-    coast_vertices = []
-    for vertex in tile.adjacent_roads:
+def choose_harbors(vertices):
+    harbor_types = ['3:1 any'] * 4 + ['2:1 ore', '2:1 wood', '2:1 brick', '2:1 grain', '2:1 sheep']
+    dist_list = [0, 4, 3, 3, 4, 3, 3, 4, 3]
+    potential_harbor_vertices = []
+    count = 1
+    for vertex in vertices:
         if len(vertex.adjacent_tiles) == 2 or len(vertex.adjacent_roads) == 2:
-            coast_vertices.append(vertex)
-    return coast_vertices
+            potential_harbor_vertices.append(vertex)
+            vertex.order = count
+            count += 1
+    
+    order_verts = [1, 6, 5, 4, 8, 7, 10, 9, 11, 12, 13, 14, 16, 15, 18, 17, 21, 20, 19, 23, 22, 26, 25, 24, 28, 27, 30, 29, 3, 2]
+    index_to_vertex = {vertex.order: vertex for vertex in vertices}
+    potential_harbor_vertices = [index_to_vertex[idx] for idx in order_verts if idx in index_to_vertex]
 
-# Function to get the vertices of a tile that are not shared with any other tile
-def get_solo_vertices(tile):
-    coast_vertices = []
-    for vertex in tile.adjacent_roads:
-        if len(vertex.adjacent_roads) == 2:
-            coast_vertices.append(vertex)
-    return coast_vertices
+    random_start = random.randint(0, len(potential_harbor_vertices) - 1)
+    potential_harbor_vertices = potential_harbor_vertices[random_start:] + potential_harbor_vertices[:random_start]
 
-def choose_harbors(potential_harbor_tiles):
-    harbor_types = ['3:1'] * 4 + ['2:1 ore', '2:1 wood', '2:1 brick', '2:1 grain', '2:1 sheep']
-    chosen_harbor_vertices = []
-
-
-
-    # Loop to choose the number of solo harbors (harbors that are exclusive to one tile)
-    while (len(chosen_harbor_vertices) < 10):
-        chosen = random.choice(potential_harbor_tiles)
-        chosen_vertices = get_solo_vertices(chosen)
-        if (len(chosen_vertices) >= 2):
-            harbor_verts = random.sample(chosen_vertices, 2)
-            while not (harbor_verts[0] in harbor_verts[1].adjacent_roads and harbor_verts[1] in harbor_verts[0].adjacent_roads) or (harbor_verts[0] in chosen_harbor_vertices or harbor_verts[1] in chosen_harbor_vertices):
-                harbor_verts = random.sample(chosen_coast_verts, 2)
-            harbor_verts[0].harbor = True
-            harbor_verts[0].harbor_partner = harbor_verts[1]
-            harbor_verts[1].harbor = True
-            harbor_verts[1].harbor_partner = harbor_verts[0]
-
-            harbor_type = random.choice(harbor_types)
-            harbor_verts[0].harbor_type = harbor_type
-            harbor_verts[1].harbor_type = harbor_type
-            harbor_types.remove(harbor_type)
-
-            chosen_harbor_vertices.append(harbor_verts[0])
-            chosen_harbor_vertices.append(harbor_verts[1])
-            potential_harbor_tiles.remove(chosen)
-             
-
-    # After the solo harbors are chosen, choose the rest of the harbors (can be between tiles)
-    while (len(chosen_harbor_vertices) < 18):
-        chosen = random.choice(potential_harbor_tiles)
-            
-        chosen_coast_verts = get_coast_vertices(chosen)
-        harbor_verts = random.sample(chosen_coast_verts, 2)
-        while not (harbor_verts[0] in harbor_verts[1].adjacent_roads and harbor_verts[1] in harbor_verts[0].adjacent_roads) or (harbor_verts[0] in chosen_harbor_vertices or harbor_verts[1] in chosen_harbor_vertices):
-            harbor_verts = random.sample(chosen_coast_verts, 2)
-        harbor_verts[0].harbor = True
-        harbor_verts[0].harbor_partner = harbor_verts[1]
-        harbor_verts[1].harbor = True
-        harbor_verts[1].harbor_partner = harbor_verts[0]
-
-
+    current_index = random_start
+    for dist in dist_list:
         harbor_type = random.choice(harbor_types)
-        harbor_verts[0].harbor_type = harbor_type
-        harbor_verts[1].harbor_type = harbor_type
+        current_index = (dist + current_index) % (len(potential_harbor_vertices))
+        next_index = (current_index + 1) % (len(potential_harbor_vertices))
+        
+        current_vertex = potential_harbor_vertices[current_index]
+        next_vertex = potential_harbor_vertices[next_index]
+        current_vertex.harbor = True
+        current_vertex.harbor_type = harbor_type
+        next_vertex.harbor = True
+        next_vertex.harbor_type = harbor_type
+
         harbor_types.remove(harbor_type)
 
-        chosen_harbor_vertices.append(harbor_verts[0])
-        chosen_harbor_vertices.append(harbor_verts[1])
+        
 
-
-        potential_harbor_tiles.remove(chosen)
-
-                
 def initialize_game():
     centers, vertices = generate_hex_board(CENTER, SIZE)
-    possible_harbors = generate_possible_harbors(centers, vertices)
-    choose_harbors(possible_harbors)
+    choose_harbors(vertices)
     initialize_tiles(centers)
     return centers, vertices
 
@@ -221,7 +176,8 @@ centers, vertices = initialize_game()
 pygame.init()
 pygame.font.init()
 
-font = pygame.font.SysFont('Arial', 24)
+tile_font = pygame.font.SysFont('Arial', 24)
+harbor_font = pygame.font.SysFont('Arial', 17)
 
 
 
@@ -245,14 +201,17 @@ def draw_grid():
     for center in centers:
         draw_hexagon(screen, color_map[center.resource], ROAD_COLOR, center, SIZE)
         if (center.number):
-            text_surface = font.render(str(center.number), True, ROAD_COLOR)
+            text_surface = tile_font.render(str(center.number), True, (255, 255, 255))
             text_rect = text_surface.get_rect(center=(center.x, center.y))
             screen.blit(text_surface, text_rect)
     
     for vertex in vertices:
         if vertex.harbor:
-            pygame.draw.circle(screen, (101, 67, 33), (int(vertex.x), int(vertex.y)), 6)
-            pygame.draw.line(screen, (101, 67, 33), (vertex.x, vertex.y), (vertex.harbor_partner.x, vertex.harbor_partner.y), 5)
+            harbor_text = harbor_font.render(vertex.harbor_type, True, (255, 255, 255))
+            text_rect = harbor_text.get_rect(center=(int(vertex.x), int(vertex.y)))
+            pygame.draw.rect(screen, (101, 67, 33), text_rect.inflate(2, 2))
+            screen.blit(harbor_text, text_rect)
+            
         else:
             pygame.draw.circle(screen, ROAD_COLOR, (int(vertex.x), int(vertex.y)), 4)
 
