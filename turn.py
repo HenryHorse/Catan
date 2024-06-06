@@ -1,5 +1,5 @@
 from catan import *
-from game import *
+from game import * # includes Player, Game, Settlement, Road, City classes
 
 def main():
     player_red = Player('red')
