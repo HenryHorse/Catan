@@ -1,9 +1,9 @@
 import random
 
 def initialize_tiles(centers):
-    resources = ['forest', 'grain', 'sheep', 'ore', 'brick', 'desert']
+    resources = ['wood', 'grain', 'sheep', 'ore', 'brick', 'desert']
     resource_distribution = {
-        'forest': 4,
+        'wood': 4,
         'grain': 4,
         'sheep': 4,
         'ore': 3,

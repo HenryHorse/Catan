@@ -2,11 +2,13 @@ from catan import *
 from game import * # includes Player, Game, Settlement, Road, City classes
 
 def main():
-    player_red = Player('red')
-    player_blue = Player('blue')
-
     game = Game()
     game.initialize_game(get_tile_vertices(), get_road_vertices())
+
+    player_red = Player('red')
+    player_blue = Player('blue')
+    player_red.initialize_settlements_roads(game)
+    player_blue.initialize_settlements_roads(game)
 
     # while not turn(player_red, game):
     #     pass

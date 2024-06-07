@@ -29,6 +29,7 @@ class DevelopmentCard:
             # player can move robber
             # location = 
             # game.move_robber(location)
+            pass
         elif self.card_type == 'victory_point':
             # add victory point
             player.victory_points += 1
@@ -71,6 +72,7 @@ class Game:
         for tile in tile_vertices:
             if tile.resource == 'desert':
                 self.robber = (tile.x, tile.y)
+        print(f"robber placed at {(tile.x, tile.y)}")
         
     def add_player(self, player):
         self.players.append(player)
@@ -147,6 +149,15 @@ class Game:
         
         return trade_ratio
 
+    def get_adjacent_vertices(self, tile_vertex):
+        ''' returns the adjacent tile vertices to the tile at location (x, y) '''
+        x = tile_vertex.x
+        y = tile_vertex.y
+        for vertex in self.tile_vertices:
+            if vertex.x == x and vertex.y == y:
+                return vertex.adjacent_tiles
+        return []
+
 class Player:
     def __init__(self, color):
         self.color = color
@@ -169,9 +180,42 @@ class Player:
         self.roads = [] 
         self.victory_points = 0 # need 10 to win
     
-    def initialize_settlements_roads(self):
-        # TODO: build 2 settlements and 2 roads on the map
-        pass
+    def initialize_settlements_roads(self, game):
+        ''' builds 2 settlements and 2 roads on the map in random valid locations,
+            returns the location of the second settlement'''
+        settlement_loc1 = self.find_random_valid_settlement_location(game)
+        self.build_settlement(settlement_loc1)
+        game.occupy_tile(settlement_loc1)
+        print(f"{self.color} built 1st settlement at {(settlement_loc1.x, settlement_loc1.y)}")
+
+        road_loc1 = self.find_random_valid_road_location(settlement_loc1, game)
+        self.build_road(settlement_loc1, road_loc1)
+        game.occupy_road(settlement_loc1, road_loc1)
+        print(f"{self.color} built 1st road from {(settlement_loc1.x, settlement_loc1.y)} to {(road_loc1.x, road_loc1.y)}")
+
+        settlement_loc2 = self.find_random_valid_settlement_location(game)
+        self.build_settlement(settlement_loc2)
+        game.occupy_tile(settlement_loc2)
+        print(f"{self.color} built 2nd settlement at {(settlement_loc2.x, settlement_loc2.y)}")
+
+        road_loc2 = self.find_random_valid_road_location(settlement_loc2, game)
+        self.build_road(settlement_loc2, road_loc2)
+        game.occupy_road(settlement_loc2, road_loc2)
+        print(f"{self.color} built 2nd road from {(settlement_loc2.x, settlement_loc2.y)} to {(road_loc2.x, road_loc2.y)}")
+
+        return settlement_loc2
+
+    def find_random_valid_settlement_location(self, game):
+        ''' returns a random road vertex that is valid '''
+        valid_locations = [v for v in game.tile_vertices if game.is_valid_settlement_location(v)]
+        return random.choice(valid_locations)
+
+    def find_random_valid_road_location(self, settlement_location, game):
+        ''' returns random road vertex that is the other point to the road, where the first point is the settlement'''
+        #TODO: verify that this logic is right
+        adjacent_vertices = game.get_adjacent_vertices(settlement_location)
+        # valid_road_locations = [v for v in adjacent_vertices]
+        return random.choice(adjacent_vertices)
 
 
     # adding resources based on dice roll and where the settlements are 
