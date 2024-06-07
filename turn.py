@@ -139,7 +139,8 @@ def can_domestic_trade(player, resource_needed, players):
             for resource, amount in other_player.resources.items():
                 if resource == resource_needed and amount > 0:
                     # assume 1:1 resource trade
-                    return other_player, resource
+                    if other_player.resources[needed_resource] > 0:
+                        return other_player, resource
     return None, None
 
 # ---------- build helper methods ----------
