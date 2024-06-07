@@ -34,7 +34,7 @@ def turn_roll_dice(player, game):
     tile_vertices = game.tile_vertices
     ''' gives player resources they own settlements on from the dice roll'''
     tile_number = roll_dice(2)
-    print(player.color, "player rolled number: ", tile_number)
+    print(f"{player.color} player rolled number: {tile_number}")
     # if the RoadVertex correspondng to settlement.location has tile w tile_number in the adjacent tiles, give resources to the player
     for p in game.players:
         player_settlement_locs = {}
@@ -43,7 +43,7 @@ def turn_roll_dice(player, game):
         for tile in tile_vertices:
             if tile.number == tile_number and (tile.x, tile.y) in player_settlement_locs:
                 p.resources[tile.resource] += tile.number
-                print(p.color, "received", tile.number, tile.resource)
+                print(f"{p.color} player received {tile.number} {tile.resource}")
 
 def turn_trade(player, game):
     ''' trade any excess resources for needed ones'''
@@ -105,12 +105,16 @@ def turn_build(player, game):
     if can_build_settlement(player):
         location = find_settlement_location(game)
         player.build_settlement(location)
-    elif can_build_road(player):
+        print(f"Player built settlement at {location}")
+    if can_build_road(player):
         loc1, loc2 = find_road_location(game)
         player.build_road(loc1, loc2)
-    elif can_build_city(player):
+        print(f"Player built road at {location}")
+    if can_build_city(player):
         location = find_city_location(game)
         player.build_city(location)
+        print(f"Player upgraded settlement to city at {location}")
+
 
 # ---------- roll dice helper methods ----------
 
@@ -232,6 +236,7 @@ def evaluate_road_location(loc1, loc2, game):
     return score
 
 def evaluate_city_location(location, game):
+    '''returns calculated score for how good city location is '''
     score = 0
     adjacent_tiles = game.get_adjacent_tiles(location)
     for tile in adjacent_tiles:

@@ -16,6 +16,28 @@ class Road:
         self.color = color
         self.rv1 = rv1
         self.rv2 = rv2
+
+class DevelopmentCard:
+    def __init__(self, card_type):
+        self.card_type = card_type
+        self.played = False
+
+    def use_effect(self, player, game):
+        if self.card_type == 'knight':
+            # player can move robber
+            pass
+        elif self.card_type == 'victory_point':
+            # add victory point
+            pass
+        elif self.card_type == 'road_building':
+            # can place 2 roads as if just built them
+            pass
+        elif self.card_type == 'year_of_plenty':
+            # draw 2 resource cards of choice from bank
+            pass
+        elif self.card_type == 'monopoly':
+            # claim all resource cards of specific declared type
+            pass
         
 class Game:
     ''' keep track of the state of the game'''
@@ -26,15 +48,35 @@ class Game:
         self.tile_vertices = []  # all tile vertices on the board
         self.road_vertices = []  # all road vertices on the board
         self.harbors = {} # key: location of harbor, val: trade ratio
-
-    def add_player(self, player):
-        self.players.append(player)
     
     def initialize_harbors_dict(self):
         for rv in self.road_vertices:
             if rv.harbor:
                 self.harbors[(rv.x, rv.y)] = rv.harbor_type
 
+    def distribute_dev_cards(self):
+        cards_per_type = {
+            'knight': 14,
+            'victory_point': 5,
+            'road_building': 2,
+            'year_of_plenty': 2,
+            'monopoly': 2
+        }
+        # add correct number of each card to the deck
+        for card_type, count in cards_per_type.items():
+            for _ in range(count):
+                self.dev_card_deck.append(DevelopmentCard(card_type))
+
+        random.shuffle(self.dev_card_deck)
+
+    def draw_dev_card(self):
+        if len(self.dev_card_deck) > 0:
+            return self.dev_card_deck.pop()
+        return None
+
+    def add_player(self, player):
+        self.players.append(player)
+        
     # def get_tile_vertices(self):
     #     return self.tile_vertices
 
@@ -111,12 +153,23 @@ class Player:
 
     def remove_resource(self, resource, amount):
         self.resources[resource] -= amount
+    
+    def buy_dev_card(self, game):
+        # dev card costs 1 ore, 1 wool, 1 grain
+        self.remove_resource('ore', 1)
+        self.remove_resource('wool', 1)
+        self.remove_resource('grain', 1)
 
-    def add_dev_card(self, dev_card):
-        self.dev_cards.append(dev_card)
+        card = game.draw_dev_card()
+        self.dev_cards.append(card)
 
-    def remove_dev_card(self, dev_card):
-        self.dev_cards.remove(dev_card)
+    def play_dev_card(self, card_type):
+        for card in self.dev_cards:
+            if card.card_type == card_type and not card.played:
+                card.played = True
+                card.use_effect(self, game)
+                return True
+        return False
 
     def build_settlement(self, location):
         # can only build settlement if unbuilt settlements > 0
