@@ -30,7 +30,7 @@ class Game:
     def add_player(self, player):
         self.players.append(player)
     
-    def initialize_harbors_dict():
+    def initialize_harbors_dict(self):
         for rv in self.road_vertices:
             if rv.harbor:
                 self.harbors[(rv.x, rv.y)] = rv.harbor_type

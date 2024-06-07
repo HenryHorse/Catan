@@ -10,32 +10,36 @@ def main():
     game.road_vertices = get_road_vertices()
     game.initialize_harbors_dict()
 
-    while not turn(player_red, game):
-        pass
-    print("Red player wins!")
+    # while not turn(player_red, game):
+    #     pass
+    # print("Red player wins!")
+    turn(player_red, game)
 
 def turn(player, game):
     if player.victory_points >= 10:
         return True
     else:
         # 1) resource production/roll dice
-        turn_roll_dice(player, game.tile_vertices)
+        turn_roll_dice(player, game)
         # 2) trade
         turn_trade(player)
         # 3) build
         turn_build(player, game)
 
-def turn_roll_dice(game, tile_vertices):
+def turn_roll_dice(player, game):
+    tile_vertices = game.tile_vertices
     ''' gives player resources they own settlements on from the dice roll'''
     tile_number = roll_dice(2)
+    print(player.color, "player rolled number: ", tile_number)
     # if the RoadVertex correspondng to settlement.location has tile w tile_number in the adjacent tiles, give resources to the player
-    for player in game.players:
+    for p in game.players:
         player_settlement_locs = {}
-        for s in player.settlements:
+        for s in p.settlements:
             player_settlement_locs.add(s.location)
         for tile in tile_vertices:
             if tile.number == tile_number and (tile.x, tile.y) in player_settlement_locs:
-                player.resources[tile.resource] += tile.number
+                p.resources[tile.resource] += tile.number
+                print(p.color, "received", tile.number, tile.resource)
 
 def turn_trade(player):
     ''' trade any excess resources for needed ones'''
