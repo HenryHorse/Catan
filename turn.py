@@ -182,15 +182,15 @@ def turn_build(player, game):
     if can_build_settlement(player):
         location = find_settlement_location(player, game)
         player.build_settlement(location)
-        print(f"Player built settlement at {location}")
+        print(f"{player.color} built settlement at {location}")
     if can_build_road(player):
         loc1, loc2 = find_road_location(player, game)
         player.build_road(loc1, loc2)
-        print(f"Player built road between {loc1} and {loc2}")
+        print(f"{player.color} built road between {loc1} and {loc2}")
     if can_build_city(player):
         location = find_city_location(player, game)
         player.build_city(location)
-        print(f"Player upgraded settlement to city at {location}")
+        print(f"{player.color} upgraded settlement to city at {location}")
 
 
 # ---------- roll dice helper methods ----------
@@ -266,13 +266,13 @@ def find_road_location(player, game):
     best_score = -1
     
     for road in game.road_vertices:
-        for neighbor in game.get_adjacent_vertices(road):
+        for neighbor in road.adjacent_roads:
             if game.is_valid_road_location(road, neighbor):
                 score = evaluate_road_location(road, neighbor, game)
                 if score > best_score:
                     best_loc1, best_loc2 = road, neighbor
                     best_score = score
-    print(f"Best road location found between {best_loc1} and {best_loc2}")
+    # print(f"Best road location found between {best_loc1} and {best_loc2}")
     return best_loc1, best_loc2
 
 def find_city_location(player, game):

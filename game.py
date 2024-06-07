@@ -118,12 +118,13 @@ class Game:
 
 
     def is_valid_road_location(self, loc1, loc2):
+        # TODO: check if the road connects to player's existing roads
         # check if road is connected to player's existing roads or settlements
         if loc1 in self.occ_roads or loc2 in self.occ_roads:
             return False
-        if loc1 in self.occ_tiles or loc2 in self.occ_tiles:
-            return False
-        if loc1 in self.get_adjacent_vertices(loc2):
+        # if loc1 in self.occ_tiles or loc2 in self.occ_tiles:
+        #     return False
+        if loc1 in loc2.adjacent_roads:
             return True
         return False
 
