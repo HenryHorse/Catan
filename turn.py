@@ -2,13 +2,32 @@ from catan import *
 from game import * # includes Player, Game, Settlement, Road, City classes
 
 def main():
+    print("--------initializing games and players--------")
     game = Game()
     game.initialize_game(get_tile_vertices(), get_road_vertices())
 
     player_red = Player('red')
-    player_blue = Player('blue')
+    game.add_player(player_red)
     player_red.initialize_settlements_roads(game)
+
+    player_blue = Player('blue')
+    game.add_player(player_blue)
     player_blue.initialize_settlements_roads(game)
+
+    player_white = Player('white')    
+    game.add_player(player_white)
+    player_white.initialize_settlements_roads(game)
+
+    player_orange = Player('orange')
+    game.add_player(player_orange)
+    player_orange.initialize_settlements_roads(game)
+
+
+    print("--------red takes turn--------")
+    turn(player_red, game)
+
+    print("--------blue takes turn--------")
+    turn(player_blue, game)
 
     # while not turn(player_red, game):
     #     pass
@@ -17,7 +36,7 @@ def main():
     # test getting resources
     # res = key, val = random.choice(list(game.harbors.items()))
     # player_blue.settlements.append((key))
-    # turn(player_red, game)
+
 
 def turn(player, game):
     if player.victory_points >= 10:
@@ -41,9 +60,11 @@ def turn_roll_dice(player, game):
         for s in p.settlements:
             player_settlement_locs.add(s.location)
         for tile in tile_vertices:
-            if tile.number == tile_number and (tile.x, tile.y) in player_settlement_locs:
-                p.resources[tile.resource] += tile.number
-                print(f"{p.color} player received {tile.number} {tile.resource}")
+            if tile.number == tile_number:
+                print(f"tile number {tile_number} at {tile}")
+                if (tile.x, tile.y) in player_settlement_locs:
+                    p.resources[tile.resource] += tile.number
+                    print(f"{p.color} player received {tile.number} {tile.resource}")
 
 def turn_trade(player, game):
     ''' trade any excess resources for needed ones'''

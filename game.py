@@ -149,11 +149,11 @@ class Game:
         
         return trade_ratio
 
-    def get_adjacent_vertices(self, tile_vertex):
+    def get_adjacent_vertices(self, vertex):
         ''' returns the adjacent tile vertices to the tile at location (x, y) '''
-        x = tile_vertex.x
-        y = tile_vertex.y
-        for vertex in self.tile_vertices:
+        x = vertex.x
+        y = vertex.y
+        for vertex in self.road_vertices:
             if vertex.x == x and vertex.y == y:
                 return vertex.adjacent_tiles
         return []
@@ -207,7 +207,7 @@ class Player:
 
     def find_random_valid_settlement_location(self, game):
         ''' returns a random road vertex that is valid '''
-        valid_locations = [v for v in game.tile_vertices if game.is_valid_settlement_location(v)]
+        valid_locations = [v for v in game.road_vertices if game.is_valid_settlement_location(v)]
         return random.choice(valid_locations)
 
     def find_random_valid_road_location(self, settlement_location, game):
