@@ -8,6 +8,7 @@ def main():
     game = Game()
     game.tile_vertices = get_tile_vertices()  
     game.road_vertices = get_road_vertices()
+    game.initialize_harbors_dict()
 
     while not turn(player_red, game):
         pass
@@ -55,11 +56,29 @@ def turn_trade(player):
     elif can_build_city(player):
         needed_resources['grain'] += 2
         needed_resources['ore'] += 3
-    
-    # TODO: add more advanced game logic
+
+    for resource, amount in needed_resources.items():
         if player.resources[resource] < amount:
-            # TODO: implement trade logic
-            print(f"{player.color} needs {amount - player.resources[resource]} {resource}")
+            # Calculate the deficit
+            deficit = amount - player.resources[resource]
+            
+            # try trading w other players first
+            other_player, trade_resource = can_domestic_trade(player, resource, game.players)
+            if other_player:
+                print(f"{player.color} trades with {other_player.color} for {resource}")
+                player.resources[resource] += 1
+                player.resources[trade_resource] -= 1
+                other_player.resources[resource] -= 1
+                other_player.resources[trade_resource] += 1
+            
+            # then try maritime trade
+            else:
+                bank_resource, trade_amount = can_maritime_trade(player, resource)
+                if bank_resource:
+                    print(f"{player.color} trades with the bank for {resource}")
+                    player.resources[resource] += 1
+                    player.resources[bank_resource] -= trade_amount
+
 
 def turn_build(player, game):
     ''' build the first thing the player can (for now, change later?)'''
@@ -86,9 +105,11 @@ def roll_dice(n):
 
 def can_maritime_trade(player, resource_needed):
     # check for maritime trade: 4:1 ratio, give 4 resources to "bank", take 1
-    for resource, amount in player.resources.items(): # looping through key value pairs
-        if resource != resource_needed and amount >= 4:
-            return resource, 4
+    # if they have harbor, use the min trade ratio from that
+    trade_ratio = game.get_harbor_trade_ratio(player, resource_needed)
+    for resource, amount in player.resources.items():
+        if resource != resource_needed and amount >= trade_ratio:
+            return resource, trade_ratio
     return None, 0
 
 def can_domestic_trade(player, resource_needed, players):

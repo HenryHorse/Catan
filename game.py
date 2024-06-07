@@ -25,15 +25,21 @@ class Game:
         self.players = []  # players in the game
         self.tile_vertices = []  # all tile vertices on the board
         self.road_vertices = []  # all road vertices on the board
+        self.harbors = {} # key: location of harbor, val: trade ratio
 
     def add_player(self, player):
         self.players.append(player)
+    
+    def initialize_harbors_dict():
+        for rv in self.road_vertices:
+            if rv.harbor:
+                self.harbors[(rv.x, rv.y)] = rv.harbor_type
 
-    def get_tile_vertices(self):
-        return self.tile_vertices
+    # def get_tile_vertices(self):
+    #     return self.tile_vertices
 
-    def get_road_vertices(self):
-        return self.road_vertices
+    # def get_road_vertices(self):
+    #     return self.road_vertices
 
     def is_valid_settlement_location(self, location):
         return location not in self.occ_tiles
@@ -47,7 +53,23 @@ class Game:
 
     def occupy_road(self, loc1, loc2):
         self.occ_roads.append((loc1, loc2))
+    
+    def get_harbor_trade_ratio(self, player, resource):
+        # default trade ratio is 4:1
+        trade_ratio = 4
+
+        for settlement in player.settlements:
+            location = settlement.location
+            if location in self.harbors:
+                harbor_type = self.harbors[location]
+                # sets trade ratio to minimum trade ratio
+                if harbor_type == '3:1 any':
+                    trade_ratio = min(trade_ratio, 3)
+                elif harbor_type == f'2:1 {resource}':
+                    trade_ratio = min(trade_ratio, 2)
         
+        return trade_ratio
+
 class Player:
     def __init__(self, color):
         self.color = color
