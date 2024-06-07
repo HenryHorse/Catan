@@ -27,22 +27,22 @@ def main():
     blue = False
     white = False
     orange = False
-    # while winner == None:
-    for i in range(0, 10):
+    while winner == None:
+    # for i in range(0, 10):
         print("--------red takes turn--------")
-        if(red == turn(player_red, game)):
+        if(turn(player_red, game)):
             winner = player_red
 
         print("--------blue takes turn--------")
-        if(blue == turn(player_blue, game)):
+        if(turn(player_blue, game)):
             winner = player_blue
 
         print("--------white takes turn--------")
-        if(white == turn(player_white, game)):
+        if(turn(player_white, game)):
             winner = player_white
 
         print("--------orange takes turn--------")
-        if(orange == turn(player_orange, game)):
+        if(turn(player_orange, game)):
             winner = player_orange
     print(f"The winner is {winner.color}")
 
