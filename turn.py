@@ -22,18 +22,28 @@ def main():
     game.add_player(player_orange)
     player_orange.initialize_settlements_roads(game)
 
+    winner = None
+    red = False
+    blue = False
+    white = False
+    orange = False
+    while winner == None:
+        print("--------red takes turn--------")
+        if(red == turn(player_red, game)):
+            winner = player_red
 
-    print("--------red takes turn--------")
-    turn(player_red, game)
+        print("--------blue takes turn--------")
+        if(blue == turn(player_blue, game)):
+            winner = player_blue
 
-    print("--------blue takes turn--------")
-    turn(player_blue, game)
-    
-    print("--------white takes turn--------")
-    turn(player_white, game)
+        print("--------white takes turn--------")
+        if(white == turn(player_white, game)):
+            winner = player_white
 
-    print("--------orange takes turn--------")
-    turn(player_orange, game)
+        print("--------orange takes turn--------")
+        if(orange == turn(player_orange, game)):
+            winner = player_orange
+    print(f"The winner is {winner.color}")
 
     # while not turn(player_red, game):
     #     pass
