@@ -319,7 +319,10 @@ def evaluate_road_location(loc1, loc2, game):
 def evaluate_city_location(location, game):
     '''returns calculated score for how good city location is '''
     score = 0
-    adjacent_tiles = location.adjacent_tiles
+    adjacent_tiles = []
+    for vertex in game.road_vertices:
+        if (vertex.x, vertex.y) == location:
+            adjacent_tiles = vertex.adjacent_tiles
     for tile in adjacent_tiles:
         score += tile.number
     # points for upgrading
