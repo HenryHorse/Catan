@@ -13,7 +13,11 @@ def main():
     # while not turn(player_red, game):
     #     pass
     # print("Red player wins!")
-    turn(player_red, game)
+
+    # test getting resources
+    # res = key, val = random.choice(list(game.harbors.items()))
+    # player_blue.settlements.append((key))
+    # turn(player_red, game)
 
 def turn(player, game):
     if player.victory_points >= 10:
@@ -22,7 +26,7 @@ def turn(player, game):
         # 1) resource production/roll dice
         turn_roll_dice(player, game)
         # 2) trade
-        turn_trade(player)
+        turn_trade(player, game)
         # 3) build
         turn_build(player, game)
 
@@ -41,7 +45,7 @@ def turn_roll_dice(player, game):
                 p.resources[tile.resource] += tile.number
                 print(p.color, "received", tile.number, tile.resource)
 
-def turn_trade(player):
+def turn_trade(player, game):
     ''' trade any excess resources for needed ones'''
     needed_resources = {'brick': 0, 'wood': 0, 'grain': 0, 'sheep': 0, 'ore': 0}
     
@@ -63,25 +67,37 @@ def turn_trade(player):
 
     for resource, amount in needed_resources.items():
         if player.resources[resource] < amount:
-            # Calculate the deficit
+            # calculate the deficit
             deficit = amount - player.resources[resource]
             
             # try trading w other players first
-            other_player, trade_resource = can_domestic_trade(player, resource, game.players)
-            if other_player:
-                print(f"{player.color} trades with {other_player.color} for {resource}")
-                player.resources[resource] += 1
-                player.resources[trade_resource] -= 1
-                other_player.resources[resource] -= 1
-                other_player.resources[trade_resource] += 1
+            while deficit > 0:
+                trade_made = False
+                for other_player in game.players:
+                    if other_player != player:
+                        other_player, trade_resource = can_domestic_trade(player, resource, game.players)
+                        if other_player:
+                            print(f"{player.color} trades with {other_player.color} for {resource}")
+                            player.resources[resource] += 1
+                            player.resources[trade_resource] -= 1
+                            other_player.resources[resource] -= 1
+                            other_player.resources[trade_resource] += 1
+                            deficit -= 1
+                            trade_made = True
+                            break  # reevaluate deficit
+                if not trade_made:
+                    break  # exit loop if no trades made
             
             # then try maritime trade
-            else:
-                bank_resource, trade_amount = can_maritime_trade(player, resource)
+            while deficit > 0:
+                bank_resource, trade_amount = can_maritime_trade(player, resource, game)
                 if bank_resource:
                     print(f"{player.color} trades with the bank for {resource}")
                     player.resources[resource] += 1
                     player.resources[bank_resource] -= trade_amount
+                    deficit -= 1
+                else:
+                    break
 
 
 def turn_build(player, game):
