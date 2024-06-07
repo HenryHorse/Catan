@@ -42,11 +42,24 @@ class Game:
     #     return self.road_vertices
 
     def is_valid_settlement_location(self, location):
-        return location not in self.occ_tiles
+        # if location is empty and not within one vertex of another settlement
+        if location in self.occ_tiles:
+            return False
+        for neighbor in self.get_adjacent_vertices(location):
+            if neighbor in self.occ_tiles:
+                return False
+        return True
+
 
     def is_valid_road_location(self, loc1, loc2):
-        # check if a road can be built between loc1 and loc2
-        return (loc1, loc2) not in self.occ_roads and (loc2, loc1) not in self.occ_roads
+        # check if road is connected to player's existing roads or settlements
+        if loc1 in self.occ_roads or loc2 in self.occ_roads:
+            return False
+        if loc1 in self.occ_tiles or loc2 in self.occ_tiles:
+            return False
+        if loc1 in self.get_adjacent_vertices(loc2):
+            return True
+        return False
 
     def occupy_tile(self, location):
         self.occ_tiles.append(location)
