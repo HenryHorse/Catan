@@ -127,6 +127,8 @@ class Player:
 
     def build_city(self, location):
         # can only build city if unbuilt cities > 0
+        # check if the location has a settlement owned by the player
+        self.settlements.remove(settlement_to_upgrade)
         city = City(self.color, location)
         self.cities.append(city)
         self.unbuilt_cities -= 1
