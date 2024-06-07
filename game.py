@@ -1,4 +1,5 @@
 from catan import *
+from turn import *
 import random
 class Settlement:
     def __init__(self, color, location):
@@ -24,19 +25,25 @@ class DevelopmentCard:
 
     def use_effect(self, player, game):
         if self.card_type == 'knight':
+            # TODO
             # player can move robber
-            pass
+            # location = 
+            # game.move_robber(location)
         elif self.card_type == 'victory_point':
             # add victory point
-            pass
+            player.victory_points += 1
         elif self.card_type == 'road_building':
             # can place 2 roads as if just built them
-            pass
+            loc1 = find_road_location(player, game)
+            loc2 = find_road_location(player, game)
+            player.build_road(loc1, loc2)
         elif self.card_type == 'year_of_plenty':
             # draw 2 resource cards of choice from bank
+            # TODO: use trading logic to do this, draw the resources_needed somehow
             pass
         elif self.card_type == 'monopoly':
             # claim all resource cards of specific declared type
+            # TODO: use trading logic to do this, draw the resources_needed somehow
             pass
         
 class Game:
@@ -48,7 +55,7 @@ class Game:
         self.tile_vertices = []  # all tile vertices on the board
         self.road_vertices = []  # all road vertices on the board
         self.harbors = {} # key: location of harbor, val: trade ratio
-        self.robber = TileVertex(0,0) # robber starts where desert is
+        self.robber = (0, 0) 
     
     def initialize_game(self, tile_vertices, road_vertices):
         # initialize vertices
@@ -60,11 +67,13 @@ class Game:
             if rv.harbor:
                 self.harbors[(rv.x, rv.y)] = rv.harbor_type
 
-        # set robber location to desert
+        # set robber start location to desert
         for tile in tile_vertices:
             if tile.resource == 'desert':
-                self.robber = tile
+                self.robber = (tile.x, tile.y)
         
+    def add_player(self, player):
+        self.players.append(player)
 
     def distribute_dev_cards(self):
         cards_per_type = {
@@ -86,9 +95,10 @@ class Game:
             return self.dev_card_deck.pop()
         return None
 
-    def add_player(self, player):
-        self.players.append(player)
-        
+    def move_robber(self, location):
+        ''' moves robber to specified location (x, y)'''
+        self.robber = location
+
     # def get_tile_vertices(self):
     #     return self.tile_vertices
 

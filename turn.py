@@ -6,9 +6,7 @@ def main():
     player_blue = Player('blue')
 
     game = Game()
-    game.tile_vertices = get_tile_vertices()  
-    game.road_vertices = get_road_vertices()
-    game.initialize_harbors_dict()
+    game.initialize_game(get_tile_vertices(), get_road_vertices())
 
     # while not turn(player_red, game):
     #     pass
