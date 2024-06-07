@@ -202,8 +202,11 @@ class Player:
         self.build_road(settlement_loc2, road_loc2)
         game.occupy_road(settlement_loc2, road_loc2)
         print(f"{self.color} built 2nd road from {(settlement_loc2.x, settlement_loc2.y)} to {(road_loc2.x, road_loc2.y)}")
+        # for all adjacent tiles to the settlement 2, add resource for player
+        for tile in settlement_loc2.adjacent_tiles:
+            self.add_resource(tile.resource, 1)
 
-        return settlement_loc2
+        # return settlement_loc2
 
     def find_random_valid_settlement_location(self, game):
         ''' returns a random road vertex that is valid '''
@@ -217,10 +220,9 @@ class Player:
         # valid_road_locations = [v for v in adjacent_vertices]
         return random.choice(adjacent_vertices)
 
-
-    # adding resources based on dice roll and where the settlements are 
     def add_resource(self, resource, amount):
-        self.resources[resource] += amount
+        if resource != 'desert':
+            self.resources[resource] += amount
 
     def remove_resource(self, resource, amount):
         self.resources[resource] -= amount
@@ -252,7 +254,7 @@ class Player:
     def build_city(self, location):
         # can only build city if unbuilt cities > 0
         # check if the location has a settlement owned by the player
-        self.settlements.remove(settlement_to_upgrade)
+        self.settlements.remove(location)
         city = City(self.color, location)
         self.cities.append(city)
         self.unbuilt_cities -= 1

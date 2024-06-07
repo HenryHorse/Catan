@@ -72,14 +72,17 @@ def turn_roll_dice(player, game):
         for tile in tile_vertices: # finding tile that corresponds to tile number
             if tile.number == tile_number:
                 tile_object = tile
+        print(f"tile number {tile_number} at {tile_object}")
+
         for p in game.players:
+            # create list of settlement locations
             player_settlement_locs = []
             for s in p.settlements:
                 player_settlement_locs.append((s.location.x, s.location.y))
-                if (tile_object.x, tile_object.y) in player_settlement_locs:
-                    p.resources[tile.resource] += tile.number
-                    print(f"{p.color} player received {tile.number} {tile.resource}")
-        print(f"tile number {tile_number} at {tile_object}")
+            # check if player has target tile, if so add resources for player
+            if (tile_object.x, tile_object.y) in player_settlement_locs:
+                p.resources[tile.resource] += tile.number
+                print(f"{p.color} player received {tile.number} {tile.resource}")
 
 def turn_trade(player, game):
     ''' trade any excess resources for needed ones'''
@@ -87,17 +90,17 @@ def turn_trade(player, game):
     
     # check what player can build and set needed resources
     #building a settlement requires 1 brick, 1 wood, 1 grain, 1 sheep
-    if can_build_settlement(player):
+    if player.unbuilt_settlements > 0:
         needed_resources['brick'] += 1
         needed_resources['wood'] += 1
         needed_resources['grain'] += 1
         needed_resources['sheep'] += 1
     # building a road requires 1 brick and 1 wood
-    elif can_build_road(player): 
+    elif player.unbuilt_roads > 0: 
         needed_resources['brick'] += 1
         needed_resources['wood'] += 1
     #building a city requires 3 grain and 2 ore
-    elif can_build_city(player):
+    elif player.unbuilt_cities > 0:
         needed_resources['grain'] += 2
         needed_resources['ore'] += 3
 
@@ -139,15 +142,15 @@ def turn_trade(player, game):
 def turn_build(player, game):
     ''' build the first thing the player can (for now, change later?)'''
     if can_build_settlement(player):
-        location = find_settlement_location(game)
+        location = find_settlement_location(player, game)
         player.build_settlement(location)
         print(f"Player built settlement at {location}")
     if can_build_road(player):
-        loc1, loc2 = find_road_location(game)
+        loc1, loc2 = find_road_location(player, game)
         player.build_road(loc1, loc2)
         print(f"Player built road at {location}")
     if can_build_city(player):
-        location = find_city_location(game)
+        location = find_city_location(player, game)
         player.build_city(location)
         print(f"Player upgraded settlement to city at {location}")
 
@@ -163,7 +166,7 @@ def roll_dice(n):
 
 # ---------- trade helper methods ----------
 
-def can_maritime_trade(player, resource_needed):
+def can_maritime_trade(player, resource_needed, game):
     # check for maritime trade: 4:1 ratio, give 4 resources to "bank", take 1
     # if they have harbor, use the min trade ratio from that
     trade_ratio = game.get_harbor_trade_ratio(player, resource_needed)
@@ -179,7 +182,7 @@ def can_domestic_trade(player, resource_needed, players):
             for resource, amount in other_player.resources.items():
                 if resource == resource_needed and amount > 0:
                     # assume 1:1 resource trade
-                    if other_player.resources[needed_resource] > 0:
+                    if other_player.resources[resource_needed] > 0:
                         return other_player, resource
     return None, None
 
@@ -191,16 +194,19 @@ def can_build_settlement(player):
             player.resources['grain'] >= 1 and 
             player.resources['sheep'] >= 1 and 
             player.unbuilt_settlements > 0)
+    # return player.unbuilt_settlements > 0
 
 def can_build_road(player):
     return (player.resources['brick'] >= 1 and 
             player.resources['wood'] >= 1 and 
             player.unbuilt_roads > 0)
+    # return player.unbuilt_roads > 0
 
 def can_build_city(player):
     return (player.resources['grain'] >= 2 and 
             player.resources['ore'] >= 3 and 
             player.unbuilt_cities > 0)
+    # return player.unbuilt_cities > 0
 
 def find_settlement_location(player, game):
     ''' finds a settlement location based on valid locations and optimal locations'''
@@ -248,7 +254,7 @@ def evaluate_settlement_location(location, game):
     '''returns calculated score for how settlement good location is based on adjacent resoucres and harbors '''
     # TODO: change this??
     score = 0
-    adjacent_tiles = game.get_adjacent_tiles(location)
+    adjacent_tiles = location.adjacent_tiles
     resource_values = {
         'brick': 0,
         'wood': 0,
@@ -257,7 +263,8 @@ def evaluate_settlement_location(location, game):
         'ore': 0
     }
     for tile in adjacent_tiles:
-        resource_values[tile.resource] += tile.value
+        if tile.resource != 'desert':
+            resource_values[tile.resource] += tile.number
     for value in resource_values.values():
         score += value
     if location in game.harbors:
@@ -274,9 +281,9 @@ def evaluate_road_location(loc1, loc2, game):
 def evaluate_city_location(location, game):
     '''returns calculated score for how good city location is '''
     score = 0
-    adjacent_tiles = game.get_adjacent_tiles(location)
+    adjacent_tiles = location.adjacent_tiles
     for tile in adjacent_tiles:
-        score += tile.value
+        score += tile.number
     # points for upgrading
     score += 2 
     return score
