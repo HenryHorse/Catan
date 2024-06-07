@@ -28,6 +28,12 @@ def main():
 
     print("--------blue takes turn--------")
     turn(player_blue, game)
+    
+    print("--------white takes turn--------")
+    turn(player_white, game)
+
+    print("--------orange takes turn--------")
+    turn(player_orange, game)
 
     # while not turn(player_red, game):
     #     pass
@@ -50,21 +56,30 @@ def turn(player, game):
         turn_build(player, game)
 
 def turn_roll_dice(player, game):
-    tile_vertices = game.tile_vertices
     ''' gives player resources they own settlements on from the dice roll'''
+    tile_vertices = game.tile_vertices
     tile_number = roll_dice(2)
     print(f"{player.color} player rolled number: {tile_number}")
-    # if the RoadVertex correspondng to settlement.location has tile w tile_number in the adjacent tiles, give resources to the player
-    for p in game.players:
-        player_settlement_locs = {}
-        for s in p.settlements:
-            player_settlement_locs.add(s.location)
-        for tile in tile_vertices:
+    tile_object = None
+    if tile_number == 7:
+        # no one receives any resources
+        # TODO: every player that has more than 7 resource cards must select half of them and return them to bank
+        # TODO: then they must move the robber to another terrain hex
+        # TODO: then they steal one random resource card from an opponent who has a settlement adjacet to target terrain hex
+            print("7 rolled! No one gets any resources.")
+    else:
+        # if the RoadVertex correspondng to settlement.location has tile w tile_number in the adjacent tiles, give resources to the player
+        for tile in tile_vertices: # finding tile that corresponds to tile number
             if tile.number == tile_number:
-                print(f"tile number {tile_number} at {tile}")
-                if (tile.x, tile.y) in player_settlement_locs:
+                tile_object = tile
+        for p in game.players:
+            player_settlement_locs = []
+            for s in p.settlements:
+                player_settlement_locs.append((s.location.x, s.location.y))
+                if (tile_object.x, tile_object.y) in player_settlement_locs:
                     p.resources[tile.resource] += tile.number
                     print(f"{p.color} player received {tile.number} {tile.resource}")
+        print(f"tile number {tile_number} at {tile_object}")
 
 def turn_trade(player, game):
     ''' trade any excess resources for needed ones'''
