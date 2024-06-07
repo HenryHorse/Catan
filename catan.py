@@ -183,7 +183,7 @@ harbor_font = pygame.font.SysFont('Arial', 17)
 
 color_map = {
     'ore': (129, 128, 128),
-    'forest': (34, 139, 34),
+    'wood': (34, 139, 34),
     'brick': (178, 34, 34),
     'grain': (220, 165, 32),
     'sheep': (154, 205, 50),

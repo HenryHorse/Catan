@@ -48,11 +48,23 @@ class Game:
         self.tile_vertices = []  # all tile vertices on the board
         self.road_vertices = []  # all road vertices on the board
         self.harbors = {} # key: location of harbor, val: trade ratio
+        self.robber = TileVertex(0,0) # robber starts where desert is
     
-    def initialize_harbors_dict(self):
+    def initialize_game(self, tile_vertices, road_vertices):
+        # initialize vertices
+        self.tile_vertices = tile_vertices
+        self.road_vertices = road_vertices
+
+        # initialize harbors dictionary
         for rv in self.road_vertices:
             if rv.harbor:
                 self.harbors[(rv.x, rv.y)] = rv.harbor_type
+
+        # set robber location to desert
+        for tile in tile_vertices:
+            if tile.resource == 'desert':
+                self.robber = tile
+        
 
     def distribute_dev_cards(self):
         cards_per_type = {
@@ -146,6 +158,11 @@ class Player:
         self.unbuilt_roads = 15
         self.roads = [] 
         self.victory_points = 0 # need 10 to win
+    
+    def initialize_settlements_roads(self):
+        # TODO: build 2 settlements and 2 roads on the map
+        pass
+
 
     # adding resources based on dice roll and where the settlements are 
     def add_resource(self, resource, amount):
