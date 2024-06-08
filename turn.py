@@ -1,59 +1,6 @@
 from catan import *
 from game import * # includes Player, Game, Settlement, Road, City classes
 
-def main():
-    print("--------initializing games and players--------")
-    game = Game()
-    game.initialize_game(get_tile_vertices(), get_road_vertices())
-
-    player_red = Player('red')
-    game.add_player(player_red)
-    player_red.initialize_settlements_roads(game)
-
-    player_blue = Player('blue')
-    game.add_player(player_blue)
-    player_blue.initialize_settlements_roads(game)
-
-    player_white = Player('white')    
-    game.add_player(player_white)
-    player_white.initialize_settlements_roads(game)
-
-    player_orange = Player('orange')
-    game.add_player(player_orange)
-    player_orange.initialize_settlements_roads(game)
-
-    winner = None
-    red = False
-    blue = False
-    white = False
-    orange = False
-    while winner == None:
-    # for i in range(0, 10):
-        print("--------red takes turn--------")
-        if(turn(player_red, game)):
-            winner = player_red
-
-        print("--------blue takes turn--------")
-        if(turn(player_blue, game)):
-            winner = player_blue
-
-        print("--------white takes turn--------")
-        if(turn(player_white, game)):
-            winner = player_white
-
-        print("--------orange takes turn--------")
-        if(turn(player_orange, game)):
-            winner = player_orange
-    print(f"The winner is {winner.color}")
-
-    # while not turn(player_red, game):
-    #     pass
-    # print("Red player wins!")
-
-    # test getting resources
-    # res = key, val = random.choice(list(game.harbors.items()))
-    # player_blue.settlements.append((key))
-
 
 def turn(player, game):
     if player.victory_points >= 10:
@@ -346,5 +293,4 @@ def evaluate_city_location(location, game):
 #     # print("\n\ntile vertices:", tile_vertices, "list size", len(tile_vertices))
 #     # print("\n\nroad vertices:", road_vertices, "list size", len(road_vertices))
 
-if __name__ == '__main__':
-    main()
+

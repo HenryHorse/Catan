@@ -8,6 +8,7 @@
 import math
 import pygame
 from diceroll import *
+from game import *
 
 class TileVertex:
     def __init__(self, x, y):
@@ -187,7 +188,11 @@ color_map = {
     'brick': (178, 34, 34),
     'grain': (220, 165, 32),
     'sheep': (154, 205, 50),
-    'desert': (255, 215, 90)
+    'desert': (255, 215, 90),
+    'red': (255, 0, 0),
+    'blue': (0, 0, 255),
+    'white': (255, 255, 255),
+    'orange': (255, 102, 0)
 }
 
 def draw_hexagon(surface, fill_color, outline_color, center, size):
@@ -215,27 +220,88 @@ def draw_grid():
         else:
             pygame.draw.circle(screen, ROAD_COLOR, (int(vertex.x), int(vertex.y)), 4)
 
+def draw_players(players):
+    for player in players:
+        for settlement in player.settlements:
+            settlement_vertex = settlement.location
+            pygame.draw.circle(screen, color_map[player.color], (int(settlement_vertex.x), int(settlement_vertex.y)), 10)
+        for city in player.cities:
+            city_vertex = city.location
+            pygame.draw.circle(screen, color_map[player.color], (int(city_vertex.x), int(city_vertex.y)), 15)
+        for road in player.roads:
+            rv1 = road.rv1
+            rv2 = road.rv2
+            pygame.draw.line(screen, color_map[player.color], (int(rv1.x), int(rv1.y)), (int(rv2.x), int(rv2.y)), 3)
+            
+
+
+
 def get_tile_vertices():
     return centers
 def get_road_vertices():
     return vertices # can get all coords from this
 
-# Main loop
-running = True
-while running:
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-        elif event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_r:
-                centers, vertices = initialize_game()
 
-    draw_grid()
-    pygame.display.flip()
+def main():
+    print("--------initializing games and players--------")
+    game = Game()
+    game.initialize_game(get_tile_vertices(), get_road_vertices())
 
-pygame.quit()
+    player_red = Player('red')
+    game.add_player(player_red)
+    player_red.initialize_settlements_roads(game)
 
-# tile_vertices = get_tile_vertices()
-# road_vertices = get_road_vertices()
-# print("\n\ntile vertices:", tile_vertices, "list size", len(tile_vertices))
-# print("\n\nroad vertices:", road_vertices, "list size", len(road_vertices))
+    player_blue = Player('blue')
+    game.add_player(player_blue)
+    player_blue.initialize_settlements_roads(game)
+
+    player_white = Player('white')    
+    game.add_player(player_white)
+    player_white.initialize_settlements_roads(game)
+
+    player_orange = Player('orange')
+    game.add_player(player_orange)
+    player_orange.initialize_settlements_roads(game)
+
+    winner = None
+    current_player_index = 0
+    players = [player_red, player_blue, player_white, player_orange]
+    draw_players(players)
+    # Main loop
+    running = True
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_r:
+                    centers, vertices = initialize_game()
+                if event.key == pygame.K_SPACE and winner is None:
+                    current_player = players[current_player_index]
+                    print(f"--------{current_player.color} takes turn--------")
+                    if turn(current_player, game):
+                        winner = current_player
+                    else:
+                        current_player_index = (current_player_index + 1) % len(players)
+                    if winner is not None:
+                        print(f"The winner is {winner.color}")
+
+
+        draw_grid()
+        draw_players(players)
+        pygame.display.flip()
+
+    pygame.quit()
+
+    
+
+    # while not turn(player_red, game):
+    #     pass
+    # print("Red player wins!")
+
+    # test getting resources
+    # res = key, val = random.choice(list(game.harbors.items()))
+    # player_blue.settlements.append((key))
+
+if __name__ == '__main__':
+    main()
