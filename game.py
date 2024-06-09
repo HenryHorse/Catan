@@ -107,15 +107,29 @@ class Game:
     # def get_road_vertices(self):
     #     return self.road_vertices
 
-    def is_valid_settlement_location(self, location):
+    def is_valid_initial_settlement_location(self, location):
         # if location is empty and not within one vertex of another settlement
         if location in self.occ_tiles:
             return False
         for neighbor in location.adjacent_roads:
             if neighbor in self.occ_tiles:
                 return False
+        # Placing a settlement next to a desert tile is always a bad move
+        for tile in location.adjacent_tiles:
+            if tile.resource == 'desert':
+                return False
         return True
 
+    def is_valid_settlement_location(self, player, location):
+        if location in self.occ_tiles:
+            return False
+        for neighbor in location.adjacent_roads:
+            if neighbor in self.occ_tiles:
+                return False
+        for road in player.roads:
+            if location == road.rv1 or location == road.rv2:
+                return True
+        return False
 
     def is_valid_road_location(self, loc1, loc2, player):
         # TODO: check if the road connects to player's existing roads
@@ -127,9 +141,9 @@ class Game:
         if loc1 in loc2.adjacent_roads:
             for road in player.roads:
                 if loc1 == road.rv1 or loc1 == road.rv2:
-                    return True
+                        return True
                 elif loc2 == road.rv1 or loc2 == road.rv2:
-                    return True
+                        return True
             for settlement in player.settlements:
                 if loc1 == settlement.location or loc2 == settlement.location:
                     return True
@@ -234,8 +248,13 @@ class Player:
 
     def find_random_valid_settlement_location(self, game):
         ''' returns a random road vertex that is valid '''
-        valid_locations = [v for v in game.road_vertices if game.is_valid_settlement_location(v)]
-        return random.choice(valid_locations)
+        valid_locations = [v for v in game.road_vertices if game.is_valid_initial_settlement_location(v)]
+        random_choice = random.choice(valid_locations)
+        # This prevents the initial settlements from being an edge location without being a harbor, because that is a bad move
+        while (len(random_choice.adjacent_tiles) == 2 or len(random_choice.adjacent_roads) == 2):
+            random_choice = random.choice(valid_locations)
+        return random_choice
+
 
     def find_random_valid_road_location(self, settlement_location, game):
         ''' returns random road vertex that is the other point to the road, where the first point is the settlement'''

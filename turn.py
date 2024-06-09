@@ -6,10 +6,12 @@ def turn(player, game):
     if player.victory_points >= 10:
         return True
     else:
+        print(f"Current Victory Points: {player.victory_points}")
         # 1) resource production/roll dice
         turn_roll_dice(player, game)
         # 2) trade
         turn_trade(player, game)
+        print(player.resources)
         # 3) build
         turn_build(player, game)
 
@@ -79,14 +81,15 @@ def turn_trade(player, game):
         needed_resources['wood'] += 1
         needed_resources['grain'] += 1
         needed_resources['sheep'] += 1
-    # building a road requires 1 brick and 1 wood
-    elif player.unbuilt_roads > 0: 
-        needed_resources['brick'] += 1
-        needed_resources['wood'] += 1
     #building a city requires 3 grain and 2 ore
     elif player.unbuilt_cities > 0:
         needed_resources['grain'] += 2
         needed_resources['ore'] += 3
+    # building a road requires 1 brick and 1 wood
+    elif player.unbuilt_roads > 0: 
+        needed_resources['brick'] += 1
+        needed_resources['wood'] += 1
+    
 
     for resource, amount in needed_resources.items():
         if player.resources[resource] < amount:
@@ -100,14 +103,19 @@ def turn_trade(player, game):
                     if other_player != player:
                         other_player, trade_resource = can_domestic_trade(player, resource, game.players)
                         if other_player:
-                            print(f"{player.color} trades with {other_player.color} for {resource}")
-                            player.resources[resource] += 1
-                            player.resources[trade_resource] -= 1
-                            other_player.resources[resource] -= 1
-                            other_player.resources[trade_resource] += 1
-                            deficit -= 1
-                            trade_made = True
-                            break  # reevaluate deficit
+                            for potential_exchange_resource in player.resources:
+                                trade_player, exchange_resource = can_domestic_trade(other_player, potential_exchange_resource, game.players)
+                                if trade_player and player.color == trade_player.color:
+                                    print(f"{player.color} trades with {other_player.color} for {resource} giving {exchange_resource}")
+                                    player.resources[resource] += 1
+                                    player.resources[exchange_resource] -= 1
+                                    other_player.resources[resource] -= 1
+                                    other_player.resources[exchange_resource] += 1
+                                    deficit -= 1
+                                    trade_made = True
+                                    break
+                            if trade_made:
+                                break
                 if not trade_made:
                     break  # exit loop if no trades made
             
@@ -121,20 +129,22 @@ def turn_trade(player, game):
                     deficit -= 1
                 else:
                     break
+            
 
 
 def turn_build(player, game):
     ''' build the first thing the player can (for now, change later?)'''
     if can_build_settlement(player):
         location = find_settlement_location(player, game)
-        player.build_settlement(location)
-        game.occupy_tile(location)
-        print(f"{player.color} built settlement at {location}")
+        if location is not None:
+            player.build_settlement(location)
+            game.occupy_tile(location)
+            print(f"{player.color} built settlement at {location}")
     if can_build_city(player):
         location = find_city_location(player, game)
         player.build_city(location)
         print(f"{player.color} upgraded settlement to city at {location}")
-    if can_build_road(player) and not ((len(player.settlements) + len(player.cities)) < len(player.roads)):
+    if can_build_road(player):
         loc1, loc2 = find_road_location(player, game)
         player.build_road(loc1, loc2)
         game.occupy_road(loc1, loc2)
@@ -168,12 +178,19 @@ def can_domestic_trade(player, resource_needed, players):
         if other_player != player:
             for resource, amount in other_player.resources.items():
                 if resource == resource_needed and amount > 0:
+                    if (resource == 'wood' or resource == 'brick') and can_build_road(other_player):
+                        continue
+                    if (resource == 'wood' or resource == 'brick' or resource == 'grain' or resource == 'sheep') and can_build_settlement(other_player):
+                        continue
+                    if (resource == 'grain' or resource == 'ore') and can_build_city(other_player):
+                        continue
                     # assume 1:1 resource trade
                     if other_player.resources[resource_needed] > 0:
-                        return other_player, resource
+                        return other_player, resource_needed
     return None, None
 
 # ---------- build helper methods ----------
+
 
 def can_build_settlement(player):
     return (player.resources['brick'] >= 1 and 
@@ -185,8 +202,8 @@ def can_build_settlement(player):
 
 def can_build_road(player):
     return (player.resources['brick'] >= 1 and 
-            player.resources['wood'] >= 1 and 
-            player.unbuilt_roads > 0)
+        player.resources['wood'] >= 1 and 
+        player.unbuilt_roads > 0)
     # return player.unbuilt_roads > 0
 
 def can_build_city(player):
@@ -201,7 +218,7 @@ def find_settlement_location(player, game):
     best_score = -1
     
     for vertex in game.road_vertices:
-        if game.is_valid_settlement_location(vertex):
+        if game.is_valid_settlement_location(player, vertex):
             score = evaluate_settlement_location(vertex, game)
             if score > best_score:
                 best_location = vertex

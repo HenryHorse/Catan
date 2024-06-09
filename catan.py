@@ -279,6 +279,7 @@ def main():
                 if event.key == pygame.K_SPACE and winner is None:
                     current_player = players[current_player_index]
                     print(f"--------{current_player.color} takes turn--------")
+                    print(current_player.resources)
                     if turn(current_player, game):
                         winner = current_player
                     else:
