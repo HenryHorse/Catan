@@ -67,8 +67,7 @@ def turn_roll_dice(player, game):
                         player.resources[tile.resource] += 1
                         print(f"{player.color} player received 1 {tile.resource}")
 
-
-
+ 
 def turn_trade(player, game):
     ''' trade any excess resources for needed ones'''
     needed_resources = {'brick': 0, 'wood': 0, 'grain': 0, 'sheep': 0, 'ore': 0}
@@ -129,15 +128,18 @@ def turn_build(player, game):
     if can_build_settlement(player):
         location = find_settlement_location(player, game)
         player.build_settlement(location)
+        game.occupy_tile(location)
         print(f"{player.color} built settlement at {location}")
-    if can_build_road(player):
-        loc1, loc2 = find_road_location(player, game)
-        player.build_road(loc1, loc2)
-        print(f"{player.color} built road between {loc1} and {loc2}")
     if can_build_city(player):
         location = find_city_location(player, game)
         player.build_city(location)
         print(f"{player.color} upgraded settlement to city at {location}")
+    if can_build_road(player) and not ((len(player.settlements) + len(player.cities)) < len(player.roads)):
+        loc1, loc2 = find_road_location(player, game)
+        player.build_road(loc1, loc2)
+        game.occupy_road(loc1, loc2)
+        print(f"{player.color} built road between {loc1} and {loc2}")
+    
 
 
 # ---------- roll dice helper methods ----------
