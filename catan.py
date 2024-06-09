@@ -286,6 +286,17 @@ def main():
                         current_player_index = (current_player_index + 1) % len(players)
                     if winner is not None:
                         print(f"The winner is {winner.color}")
+                if event.key == pygame.K_x:
+                    while winner is None:
+                        current_player = players[current_player_index]
+                        print(f"--------{current_player.color} takes turn--------")
+                        print(current_player.resources)
+                        if turn(current_player, game):
+                            winner = current_player
+                        else:
+                            current_player_index = (current_player_index + 1) % len(players)
+                        if winner is not None:
+                            print(f"The winner is {winner.color}")
 
 
         draw_grid()
