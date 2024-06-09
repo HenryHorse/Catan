@@ -195,6 +195,13 @@ class Player:
             'ore': 0,
             'brick': 0,
         }
+        self.resource_scores = {
+            'wood': 0,
+            'grain': 0,
+            'sheep': 0,
+            'ore': 0,
+            'brick': 0,
+        }
         self.dev_cards = []
 
         self.unbuilt_settlements = 5
@@ -213,6 +220,9 @@ class Player:
         settlement_loc1 = self.find_random_valid_settlement_location(game)
         self.build_settlement(settlement_loc1)
         game.occupy_tile(settlement_loc1)
+        _, resource_scores = evaluate_settlement_location(settlement_loc1, game)
+        for resource in resource_scores:
+            self.resource_scores[resource] += resource_scores[resource]
         print(f"{self.color} built 1st settlement at {(settlement_loc1.x, settlement_loc1.y)}")
 
         road_loc1 = self.find_random_valid_road_location(settlement_loc1, game)
@@ -223,6 +233,9 @@ class Player:
         settlement_loc2 = self.find_random_valid_settlement_location(game)
         self.build_settlement(settlement_loc2)
         game.occupy_tile(settlement_loc2)
+        _, resource_scores = evaluate_settlement_location(settlement_loc1, game)
+        for resource in resource_scores:
+            self.resource_scores[resource] += resource_scores[resource]
         print(f"{self.color} built 2nd settlement at {(settlement_loc2.x, settlement_loc2.y)}")
 
         road_loc2 = self.find_random_valid_road_location(settlement_loc2, game)
@@ -249,11 +262,16 @@ class Player:
     def find_random_valid_settlement_location(self, game):
         ''' returns a random road vertex that is valid '''
         valid_locations = [v for v in game.road_vertices if game.is_valid_initial_settlement_location(v)]
-        random_choice = random.choice(valid_locations)
-        # This prevents the initial settlements from being an edge location without being a harbor, because that is a bad move
-        while (len(random_choice.adjacent_tiles) == 2 or len(random_choice.adjacent_roads) == 2):
-            random_choice = random.choice(valid_locations)
-        return random_choice
+        location_scores = {}
+        for valid_location in valid_locations:
+            location_scores[valid_location], _ = evaluate_settlement_location(valid_location, game)
+        # random_choice = random.choice(valid_locations)
+        # # This prevents the initial settlements from being an edge location without being a harbor, because that is a bad move
+        # while (len(random_choice.adjacent_tiles) == 2 or len(random_choice.adjacent_roads) == 2):
+        #     random_choice = random.choice(valid_locations)
+        best_location = max(location_scores.items(), key = lambda item: item[1])
+        return best_location[0]
+
 
 
     def find_random_valid_road_location(self, settlement_location, game):

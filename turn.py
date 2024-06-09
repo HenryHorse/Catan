@@ -139,6 +139,9 @@ def turn_build(player, game):
         if location is not None:
             player.build_settlement(location)
             game.occupy_tile(location)
+            _, resource_scores = evaluate_settlement_location(location, game)
+            for resource in resource_scores:
+                player.resource_scores[resource] += resource_scores[resource]
             print(f"{player.color} built settlement at {location}")
     if can_build_city(player):
         location = find_city_location(player, game)
@@ -146,9 +149,10 @@ def turn_build(player, game):
         print(f"{player.color} upgraded settlement to city at {location}")
     if can_build_road(player):
         loc1, loc2 = find_road_location(player, game)
-        player.build_road(loc1, loc2)
-        game.occupy_road(loc1, loc2)
-        print(f"{player.color} built road between {loc1} and {loc2}")
+        if loc1 is not None and loc2 is not None:
+            player.build_road(loc1, loc2)
+            game.occupy_road(loc1, loc2)
+            print(f"{player.color} built road between {loc1} and {loc2}")
     
 
 
@@ -216,14 +220,19 @@ def find_settlement_location(player, game):
     ''' finds a settlement location based on valid locations and optimal locations'''
     best_location = None
     best_score = -1
+    best_resource_scores = None
     
     for vertex in game.road_vertices:
         if game.is_valid_settlement_location(player, vertex):
-            score = evaluate_settlement_location(vertex, game)
+            score, resource_scores = evaluate_settlement_location(vertex, game)
             if score > best_score:
                 best_location = vertex
                 best_score = score
+                best_resource_scores = resource_scores
 
+    if best_location is not None:
+        for resource in best_resource_scores:
+            player.resource_scores[resource] += best_resource_scores[resource]
     return best_location
 
 def find_road_location(player, game):
@@ -264,7 +273,6 @@ def count_factors(n):
 
 def evaluate_settlement_location(location, game):
     '''returns calculated score for how settlement good location is based on adjacent resoucres and harbors '''
-    # TODO: change this??
     score = 0
     adjacent_tiles = location.adjacent_tiles
     resource_values = {
@@ -281,13 +289,18 @@ def evaluate_settlement_location(location, game):
         score += value
     if location in game.harbors:
         score += 1  # Arbitrary bonus value for being near a harbor
-    return score
+    return score, resource_values
 
 def evaluate_road_location(loc1, loc2, game, player):
     '''returns calculated score for how good road location is '''
     score = 0
     if game.is_valid_road_location(loc1, loc2, player):
-        score += 1
+        score, resource_scores = evaluate_settlement_location(loc2, game)
+        for resource in resource_scores:
+            if player.resource_scores[resource] == 0 and resource_scores[resource] != 0:
+                score += 3
+            elif player.resource_scores[resource] < resource_scores[resource]:
+                score += 1
     return score
 
 def evaluate_city_location(location, game):
