@@ -214,8 +214,8 @@ def find_road_location(player, game):
     
     for road in game.road_vertices:
         for neighbor in road.adjacent_roads:
-            if game.is_valid_road_location(road, neighbor):
-                score = evaluate_road_location(road, neighbor, game)
+            if game.is_valid_road_location(road, neighbor, player):
+                score = evaluate_road_location(road, neighbor, game, player)
                 if score > best_score:
                     best_loc1, best_loc2 = road, neighbor
                     best_score = score
@@ -235,6 +235,14 @@ def find_city_location(player, game):
 
     return best_location
 
+
+def count_factors(n):
+    count = 0
+    for i in range(1, n + 1):
+        if n % i == 0:
+            count += 1
+    return count
+
 def evaluate_settlement_location(location, game):
     '''returns calculated score for how settlement good location is based on adjacent resoucres and harbors '''
     # TODO: change this??
@@ -249,17 +257,17 @@ def evaluate_settlement_location(location, game):
     }
     for tile in adjacent_tiles:
         if tile.resource != 'desert':
-            resource_values[tile.resource] += tile.number
+            resource_values[tile.resource] += count_factors(tile.number)
     for value in resource_values.values():
         score += value
     if location in game.harbors:
-        score += 3  # Arbitrary bonus value for being near a harbor
+        score += 1  # Arbitrary bonus value for being near a harbor
     return score
 
-def evaluate_road_location(loc1, loc2, game):
+def evaluate_road_location(loc1, loc2, game, player):
     '''returns calculated score for how good road location is '''
     score = 0
-    if game.is_valid_road_location(loc1, loc2):
+    if game.is_valid_road_location(loc1, loc2, player):
         score += 1
     return score
 

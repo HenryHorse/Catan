@@ -111,22 +111,34 @@ class Game:
         # if location is empty and not within one vertex of another settlement
         if location in self.occ_tiles:
             return False
-        for neighbor in self.get_adjacent_vertices(location):
+        for neighbor in location.adjacent_roads:
             if neighbor in self.occ_tiles:
                 return False
         return True
 
 
-    def is_valid_road_location(self, loc1, loc2):
+    def is_valid_road_location(self, loc1, loc2, player):
         # TODO: check if the road connects to player's existing roads
         # check if road is connected to player's existing roads or settlements
-        if loc1 in self.occ_roads or loc2 in self.occ_roads:
+        if (loc1, loc2) in self.occ_roads or (loc2, loc1) in self.occ_roads:
             return False
         # if loc1 in self.occ_tiles or loc2 in self.occ_tiles:
         #     return False
         if loc1 in loc2.adjacent_roads:
-            return True
-        return False
+            for road in player.roads:
+                if loc1 == road.rv1 or loc1 == road.rv2:
+                    return True
+                elif loc2 == road.rv1 or loc2 == road.rv2:
+                    return True
+            for settlement in player.settlements:
+                if loc1 == settlement.location or loc2 == settlement.location:
+                    return True
+            for city in player.cities:
+                if loc1 == city.location or loc2 == city.location:
+                    return True
+            return False
+        else:
+            return False
 
     def occupy_tile(self, location):
         self.occ_tiles.append(location)
@@ -150,14 +162,14 @@ class Game:
         
         return trade_ratio
 
-    def get_adjacent_vertices(self, vertex):
-        ''' returns the adjacent tile vertices to the tile at location (x, y) '''
-        x = vertex.x
-        y = vertex.y
-        for vertex in self.road_vertices:
-            if vertex.x == x and vertex.y == y:
-                return vertex.adjacent_tiles
-        return []
+    # def get_adjacent_vertices(self, vertex):
+    #     ''' returns the adjacent tile vertices to the tile at location (x, y) '''
+    #     x = vertex.x
+    #     y = vertex.y
+    #     for vertex in self.road_vertices:
+    #         if vertex.x == x and vertex.y == y:
+    #             return vertex.adjacent_tiles
+    #     return []
 
 class Player:
     def __init__(self, color):
@@ -203,9 +215,20 @@ class Player:
         self.build_road(settlement_loc2, road_loc2)
         game.occupy_road(settlement_loc2, road_loc2)
         print(f"{self.color} built 2nd road from {(settlement_loc2.x, settlement_loc2.y)} to {(road_loc2.x, road_loc2.y)}")
+
+        self.resources = {
+            'wood': 0,
+            'grain': 0,
+            'sheep': 0,
+            'ore': 0,
+            'brick': 0,
+        }
+
         # for all adjacent tiles to the settlement 2, add resource for player
         for tile in settlement_loc2.adjacent_tiles:
             self.add_resource(tile.resource, 1)
+
+        
 
         # return settlement_loc2
 
@@ -250,6 +273,10 @@ class Player:
         self.settlements.append(settlement)
         self.unbuilt_settlements -= 1
         self.victory_points += 1
+        self.resources['grain'] -= 1
+        self.resources['brick'] -= 1
+        self.resources['wood'] -= 1
+        self.resources['sheep'] -= 1
 
     def build_city(self, location):
         # can only build city if unbuilt cities > 0
@@ -261,11 +288,15 @@ class Player:
         self.cities.append(city)
         self.unbuilt_cities -= 1
         self.victory_points += 2
+        self.resources['grain'] -= 2
+        self.resources['ore'] -= 3
 
     def build_road(self, loc1, loc2):
         road = Road(self.color, loc1, loc2)
         self.roads.append(road)
         self.unbuilt_roads -= 1
+        self.resources['wood'] -= 1
+        self.resources['brick'] -= 1
 
     def get_victory_points(self):
         return self.victory_points
