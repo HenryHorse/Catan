@@ -171,8 +171,6 @@ SIZE = 80  # Adjusted for better visualization in the Pygame window
 screen = pygame.display.set_mode(SCREEN_SIZE)
 pygame.display.set_caption('Hexagonal Grid Visualization')
 
-# Generate board
-centers, vertices = initialize_game()
 
 pygame.init()
 pygame.font.init()
@@ -200,7 +198,7 @@ def draw_hexagon(surface, fill_color, outline_color, center, size):
     pygame.draw.polygon(surface, fill_color, vertices)
     pygame.draw.polygon(surface, outline_color, vertices, 2)
 
-def draw_grid():
+def draw_grid(centers, vertices):
     screen.fill(BACKGROUND_COLOR)
 
     for center in centers:
@@ -236,16 +234,19 @@ def draw_players(players):
 
 
 
-def get_tile_vertices():
-    return centers
-def get_road_vertices():
-    return vertices # can get all coords from this
+game = None
+players = []
+current_player_index = None
+winner = None
+centers = []
+vertices = []
 
-
-def main():
+def start():
+    global game, players, current_player_index, winner, centers, vertices
+    centers, vertices = initialize_game()
     print("--------initializing games and players--------")
     game = Game()
-    game.initialize_game(get_tile_vertices(), get_road_vertices())
+    game.initialize_game(centers, vertices)
 
     player_red = Player('red')
     game.add_player(player_red)
@@ -267,6 +268,10 @@ def main():
     current_player_index = 0
     players = [player_red, player_blue, player_white, player_orange]
     draw_players(players)
+
+def main():
+    global game, players, current_player_index, winner, centers, vertices
+    start()
     # Main loop
     running = True
     while running:
@@ -275,7 +280,7 @@ def main():
                 running = False
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_r:
-                    centers, vertices = initialize_game()
+                    start()
                 if event.key == pygame.K_SPACE and winner is None:
                     current_player = players[current_player_index]
                     print(f"--------{current_player.color} takes turn--------")
@@ -299,7 +304,7 @@ def main():
                             print(f"The winner is {winner.color}")
 
 
-        draw_grid()
+        draw_grid(centers, vertices)
         draw_players(players)
         pygame.display.flip()
 
