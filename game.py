@@ -217,9 +217,8 @@ class Player:
     def find_random_valid_road_location(self, settlement_location, game):
         ''' returns random road vertex that is the other point to the road, where the first point is the settlement'''
         #TODO: verify that this logic is right
-        adjacent_vertices = game.get_adjacent_vertices(settlement_location)
         # valid_road_locations = [v for v in adjacent_vertices]
-        return random.choice(adjacent_vertices)
+        return random.choice(settlement_location.adjacent_roads)
 
     def add_resource(self, resource, amount):
         if resource != 'desert':
