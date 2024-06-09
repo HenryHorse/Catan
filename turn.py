@@ -295,12 +295,13 @@ def evaluate_road_location(loc1, loc2, game, player):
     '''returns calculated score for how good road location is '''
     score = 0
     if game.is_valid_road_location(loc1, loc2, player):
-        score, resource_scores = evaluate_settlement_location(loc2, game)
-        for resource in resource_scores:
-            if player.resource_scores[resource] == 0 and resource_scores[resource] != 0:
-                score += 3
-            elif player.resource_scores[resource] < resource_scores[resource]:
-                score += 1
+        if game.is_valid_settlement_location(player, loc2):
+            score, resource_scores = evaluate_settlement_location(loc2, game)
+            for resource in resource_scores:
+                if player.resource_scores[resource] == 0 and resource_scores[resource] != 0:
+                    score += 3
+                elif player.resource_scores[resource] < resource_scores[resource]:
+                    score += 1
     return score
 
 def evaluate_city_location(location, game):
