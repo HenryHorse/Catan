@@ -38,9 +38,11 @@ class DevelopmentCard:
             if loc1 and loc2:
                 player.build_road(loc1, loc2)
                 game.occupy_road(loc1, loc2)
+                print(f"{player.color} built road between {loc1} and {loc2}")
             if loc3 and loc4:
                 player.build_road(loc3, loc4)
                 game.occupy_road(loc3, loc4)
+                print(f"{player.color} built road between {loc3} and {loc4}")
         elif self.card_type == 'year_of_plenty':
             # draw 2 most needed resource cards of choice from bank
             needed_resources = calc_needed_resources(player)
