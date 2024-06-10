@@ -37,8 +37,8 @@ def turn_roll_dice(player, game):
                 print(f"{p.color} has more than 7 resource cards!")
                 needed_resources = calc_needed_resources(p)
                 print(f"{p.color}'s resources: {p.resources}")
+                print(f"{p.color}'s needed resources:'{needed_resources}")
                 for _ in range(total_resource_count // 2):
-                    print(f"{p.color}'s needed resources:'{needed_resources}")
                     target_resource = keywithminval(needed_resources)
                     if p.resources[target_resource] > 1:
                         print(f"{p.color} loses 1 {target_resource}")
@@ -264,7 +264,7 @@ def find_city_location(player, game):
     return best_location
 
 
-def count_factors(n):
+def count_combos(n):
     count = 0
     for i in range(1, 7):
         for j in range(1, 7):
@@ -285,7 +285,7 @@ def evaluate_settlement_location(location, game):
     }
     for tile in adjacent_tiles:
         if tile.resource != 'desert':
-            resource_values[tile.resource] += count_factors(tile.number)
+            resource_values[tile.resource] += count_combos(tile.number)
     for value in resource_values.values():
         score += value
     if location in game.harbors:
