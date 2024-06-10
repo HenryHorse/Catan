@@ -190,7 +190,8 @@ color_map = {
     'red': (255, 0, 0),
     'blue': (0, 0, 255),
     'white': (255, 255, 255),
-    'orange': (255, 102, 0)
+    'orange': (255, 102, 0),
+    'robber': (102, 51, 0)
 }
 
 def draw_hexagon(surface, fill_color, outline_color, center, size):
@@ -232,6 +233,8 @@ def draw_players(players):
             pygame.draw.line(screen, color_map[player.color], (int(rv1.x), int(rv1.y)), (int(rv2.x), int(rv2.y)), 3)
             
 
+def draw_robber(game):
+    pygame.draw.circle(screen, color_map['robber'], (game.robber.x, game.robber.y), 12)
 
 
 game = None
@@ -306,6 +309,7 @@ def main():
 
         draw_grid(centers, vertices)
         draw_players(players)
+        draw_robber(game)
         pygame.display.flip()
 
     pygame.quit()
