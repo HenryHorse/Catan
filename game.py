@@ -111,10 +111,10 @@ class Game:
         for adj in location.adjacent_roads:
             # check who has adjacent settlements
             for opp in self.players:
-                for road in opp.roads:
-                    if road.x and road.y == adj.x and adj.y:
+                for settlement in opp.settlements:
+                    if settlement.location.x == adj.x and settlement.location.y == adj.y:
                         # take random resource from them
-                        resource = random.choice(opp.resources)
+                        resource = random.choice(list(opp.resources.keys()))
                         player.add_resource(resource, 1)
                         opp.remove_resource(resource, 1)
 
