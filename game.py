@@ -35,8 +35,12 @@ class DevelopmentCard:
             # can place 2 roads as if just built them
             loc1, loc2 = find_road_location(player, game)
             loc3, loc4 = find_road_location(player, game)
-            player.build_road(loc1, loc2)
-            player.build_road(loc3, loc4)
+            if loc1 and loc2:
+                player.build_road(loc1, loc2)
+                game.occupy_road(loc1, loc2)
+            if loc3 and loc4:
+                player.build_road(loc3, loc4)
+                game.occupy_road(loc3, loc4)
         elif self.card_type == 'year_of_plenty':
             # draw 2 most needed resource cards of choice from bank
             needed_resources = calc_needed_resources(player)
@@ -122,10 +126,15 @@ class Game:
                 for settlement in opp.settlements:
                     if settlement.location.x == adj.x and settlement.location.y == adj.y:
                         # take random resource from them
-                        resource = random.choice(list(opp.resources.keys()))
-                        print(f"{player.color} takes {resource} from {opp.color}")
-                        player.add_resource(resource, 1)
-                        opp.remove_resource(resource, 1)
+                        stealables = []
+                        for resource in opp.resources:
+                            if opp.resources[resource] > 0:
+                                stealables.append(resource)
+                        if len(stealables) > 0:
+                            resource = random.choice(stealables)
+                            print(f"{player.color} takes {resource} from {opp.color}")
+                            player.add_resource(resource, 1)
+                            opp.remove_resource(resource, 1)
 
     # def get_tile_vertices(self):
     #     return self.tile_vertices
