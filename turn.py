@@ -14,35 +14,6 @@ def turn(player, game):
         print(player.resources)
         # 3) build
         turn_build(player, game)
-
-# def turn_roll_dice(player, game):
-#     ''' gives player resources they own settlements on from the dice roll'''
-#     tile_vertices = game.tile_vertices
-#     tile_number = roll_dice(2)
-#     print(f"{player.color} player rolled number: {tile_number}")
-#     tile_object = None
-#     if tile_number == 7:
-#         # no one receives any resources
-#         # TODO: every player that has more than 7 resource cards must select half of them and return them to bank
-#         # TODO: then they must move the robber to another terrain hex
-#         # TODO: then they steal one random resource card from an opponent who has a settlement adjacet to target terrain hex
-#             print("7 rolled! No one gets any resources.")
-#     else:
-#         # if the RoadVertex correspondng to settlement.location has tile w tile_number in the adjacent tiles, give resources to the player
-#         for tile in tile_vertices: # finding tile that corresponds to tile number
-#             if tile.number == tile_number:
-#                 tile_object = tile
-#         print(f"tile number {tile_number} at {tile_object}")
-
-#         for p in game.players:
-#             # create list of settlement locations
-#             player_settlement_locs = []
-#             for s in p.settlements:
-#                 player_settlement_locs.append((s.location.x, s.location.y))
-#             # check if player has target tile, if so add resources for player
-#             if (tile_object.x, tile_object.y) in player_settlement_locs:
-#                 p.resources[tile.resource] += tile.number
-#                 print(f"{p.color} player received {tile.number} {tile.resource}")
     
 def turn_roll_dice(player, game):
     ''' gives player resources they own settlements on from the dice roll'''
@@ -69,28 +40,9 @@ def turn_roll_dice(player, game):
                         player.resources[tile.resource] += 1
                         print(f"{player.color} player received 1 {tile.resource}")
 
- 
 def turn_trade(player, game):
     ''' trade any excess resources for needed ones'''
-    needed_resources = {'brick': 0, 'wood': 0, 'grain': 0, 'sheep': 0, 'ore': 0}
-    
-    # check what player can build and set needed resources
-    #building a settlement requires 1 brick, 1 wood, 1 grain, 1 sheep
-    if player.unbuilt_settlements > 0:
-        needed_resources['brick'] += 1
-        needed_resources['wood'] += 1
-        needed_resources['grain'] += 1
-        needed_resources['sheep'] += 1
-    #building a city requires 3 grain and 2 ore
-    elif player.unbuilt_cities > 0:
-        needed_resources['grain'] += 2
-        needed_resources['ore'] += 3
-    # building a road requires 1 brick and 1 wood
-    elif player.unbuilt_roads > 0: 
-        needed_resources['brick'] += 1
-        needed_resources['wood'] += 1
-    
-
+    needed_resources = calc_needed_resources(player)
     for resource, amount in needed_resources.items():
         if player.resources[resource] < amount:
             # calculate the deficit
@@ -166,6 +118,26 @@ def roll_dice(n):
     return total
 
 # ---------- trade helper methods ----------
+def calc_needed_resources(player):
+    needed_resources = {'brick': 0, 'wood': 0, 'grain': 0, 'sheep': 0, 'ore': 0}
+    
+    # check what player can build and set needed resources
+    #building a settlement requires 1 brick, 1 wood, 1 grain, 1 sheep
+    if player.unbuilt_settlements > 0:
+        needed_resources['brick'] += 1
+        needed_resources['wood'] += 1
+        needed_resources['grain'] += 1
+        needed_resources['sheep'] += 1
+    #building a city requires 3 grain and 2 ore
+    elif player.unbuilt_cities > 0:
+        needed_resources['grain'] += 2
+        needed_resources['ore'] += 3
+    # building a road requires 1 brick and 1 wood
+    elif player.unbuilt_roads > 0: 
+        needed_resources['brick'] += 1
+        needed_resources['wood'] += 1
+    
+    return needed_resources
 
 def can_maritime_trade(player, resource_needed, game):
     # check for maritime trade: 4:1 ratio, give 4 resources to "bank", take 1
@@ -316,22 +288,3 @@ def evaluate_city_location(location, game):
     # points for upgrading
     score += 2 
     return score
-
-# def main():
-#     player_red = Player('red')
-#     player_blue = Player('blue')
-
-#     build_loc = (261.4359353944899, 400.0)
-#     if unbuilt_settlements > 0:
-#         build_settlement(build_loc)
-
-#     # testing stuff
-#     # tile_vertices = get_tile_vertices()
-#     # road_vertices = get_road_vertices()
-#     # for tile in tile_vertices:
-#     #     print("center number: ", tile.number)
-#     #     print("\n(x,y): ", tile.x, tile.y)
-#     # print("\n\ntile vertices:", tile_vertices, "list size", len(tile_vertices))
-#     # print("\n\nroad vertices:", road_vertices, "list size", len(road_vertices))
-
-
