@@ -113,9 +113,18 @@ class Game:
             return self.dev_card_deck.pop()
         return None
 
-    def move_robber(self, location):
-        ''' moves robber to specified location (x, y)'''
+    def move_robber(self, location, player):
+        ''' moves robber to specified location (x, y) and whoever moves gets to steal player's resources who has settlement adj to tile'''
         self.robber = location
+        for adj in location.adjacent_roads:
+            # check who has adjacent settlements
+            for opp in self.players:
+                for road in opp.roads:
+                    if road.x and road.y == adj.x and adj.y:
+                        # take random resource from them
+                        resource = random.choice(opp.resources)
+                        player.add_resource(resource, 1)
+                        opp.remove_resource(resource, 1)
 
     # def get_tile_vertices(self):
     #     return self.tile_vertices
