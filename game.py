@@ -25,27 +25,43 @@ class DevelopmentCard:
 
     def use_effect(self, player, game):
         if self.card_type == 'knight':
-            # TODO
             # player can move robber
-            # location = 
-            # game.move_robber(location)
+            location = random.choice(game.tile_vertices) #TODO: change from random?
+            game.move_robber(location)
             pass
         elif self.card_type == 'victory_point':
             # add victory point
             player.victory_points += 1
         elif self.card_type == 'road_building':
             # can place 2 roads as if just built them
-            loc1 = find_road_location(player, game)
-            loc2 = find_road_location(player, game)
+            loc1, loc2 = find_road_location(player, game)
+            loc3, loc4 = find_road_location(player, game)
             player.build_road(loc1, loc2)
+            player.build_road(loc3, loc4)
         elif self.card_type == 'year_of_plenty':
-            # draw 2 resource cards of choice from bank
-            # TODO: use trading logic to do this, draw the resources_needed somehow
-            pass
+            # draw 2 most needed resource cards of choice from bank
+            needed_resources = calc_needed_resources(player)
+            for _ in range(2): #get two 
+                player.resources[keywithmaxval(needed_resources)] +=1
+            
         elif self.card_type == 'monopoly':
-            # claim all resource cards of specific declared type
-            # TODO: use trading logic to do this, draw the resources_needed somehow
-            pass
+            # claim all resource cards of player's most needed resource
+            needed_resources = calc_needed_resources(player)
+            target_resource = keywithmaxval(needed_resources)
+            for opponent in game.players:
+                if opponent != player:
+                    # take all their resources
+                    amount = opponent.resources[target_resource]
+                    opponent.remove_resource(target_resource, amount)
+                    player.add_resource(target_resource, amount)
+            
+
+def keywithmaxval(dic):
+     """ a) create a list of the dict's keys and values; 
+         b) return the key with the max value"""  
+     v = list(dic.values())
+     k = list(dic.keys())
+     return k[v.index(max(v))]
         
 class Game:
     ''' keep track of the state of the game'''
