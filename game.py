@@ -28,7 +28,6 @@ class DevelopmentCard:
             # player can move robber
             location = random.choice(game.tile_vertices) #TODO: change from random?
             game.move_robber(location)
-            pass
         elif self.card_type == 'victory_point':
             # add victory point
             player.victory_points += 1
@@ -42,7 +41,9 @@ class DevelopmentCard:
             # draw 2 most needed resource cards of choice from bank
             needed_resources = calc_needed_resources(player)
             for _ in range(2): #get two 
-                player.resources[keywithmaxval(needed_resources)] +=1
+                target_resource = keywithmaxval(needed_resources)
+                player.resources[target_resource] +=1
+                print(f"{player.color} takes 1 {target_resource} from bank")
             
         elif self.card_type == 'monopoly':
             # claim all resource cards of player's most needed resource
@@ -54,7 +55,9 @@ class DevelopmentCard:
                     amount = opponent.resources[target_resource]
                     opponent.remove_resource(target_resource, amount)
                     player.add_resource(target_resource, amount)
-        
+                    print(f"{player.color} takes {amount} {target_resource} from opponent")
+
+    
 class Game:
     ''' keep track of the state of the game'''
     def __init__(self):
@@ -65,6 +68,7 @@ class Game:
         self.road_vertices = []  # all road vertices on the board
         self.harbors = {} # key: location of harbor, val: trade ratio
         self.robber = (0, 0) 
+        self.dev_card_deck =[]
     
     def initialize_game(self, tile_vertices, road_vertices):
         # initialize vertices
@@ -81,6 +85,9 @@ class Game:
             if tile.resource == 'desert':
                 self.robber = (tile.x, tile.y)
         print(f"robber placed at {(tile.x, tile.y)}")
+
+        #initialize dev card deck
+        self.distribute_dev_cards() 
         
     def add_player(self, player):
         self.players.append(player)
@@ -107,6 +114,7 @@ class Game:
 
     def move_robber(self, location, player):
         ''' moves robber to specified location (x, y) and whoever moves gets to steal player's resources who has settlement adj to tile'''
+        print(f"{player.color} moves robber to {location}")
         self.robber = location
         for adj in location.adjacent_roads:
             # check who has adjacent settlements
@@ -115,6 +123,7 @@ class Game:
                     if settlement.location.x == adj.x and settlement.location.y == adj.y:
                         # take random resource from them
                         resource = random.choice(list(opp.resources.keys()))
+                        print(f"{player.color} takes {resource} from {opp.color}")
                         player.add_resource(resource, 1)
                         opp.remove_resource(resource, 1)
 
@@ -307,7 +316,7 @@ class Player:
     def buy_dev_card(self, game):
         # dev card costs 1 ore, 1 wool, 1 grain
         self.remove_resource('ore', 1)
-        self.remove_resource('wool', 1)
+        self.remove_resource('sheep', 1)
         self.remove_resource('grain', 1)
 
         card = game.draw_dev_card()
@@ -317,6 +326,7 @@ class Player:
         for card in self.dev_cards:
             if card.card_type == card_type and not card.played:
                 card.played = True
+                print(f"{self.color} played dev card: {card}")
                 card.use_effect(self, game)
                 return True
         return False
