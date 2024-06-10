@@ -64,7 +64,7 @@ class Game:
         self.tile_vertices = []  # all tile vertices on the board
         self.road_vertices = []  # all road vertices on the board
         self.harbors = {} # key: location of harbor, val: trade ratio
-        self.robber = (0, 0) 
+        self.robber = TileVertex(0, 0) 
     
     def initialize_game(self, tile_vertices, road_vertices):
         # initialize vertices
@@ -79,7 +79,7 @@ class Game:
         # set robber start location to desert
         for tile in tile_vertices:
             if tile.resource == 'desert':
-                self.robber = (tile.x, tile.y)
+                self.robber = TileVertex(tile.x, tile.y)
         print(f"robber placed at {(tile.x, tile.y)}")
         
     def add_player(self, player):
