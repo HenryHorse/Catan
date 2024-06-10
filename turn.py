@@ -9,17 +9,18 @@ def turn(player, game):
         print(f"Current Victory Points: {player.victory_points}")
         # 1) resource production/roll dice
         turn_roll_dice(player, game)
+        # buy dev cards
+        if(player.resources['ore'] > 1 and player.resources['sheep'] > 1 and player.resources['grain'] > 1):
+            print(f"player buys dev card")
+            player.buy_dev_card(game)
         # play dev cards
         if((len(player.dev_cards)) > 0):
-            player.play_dev_card(random.choice(player.dev_cards))
+            player.play_dev_card((random.choice(player.dev_cards)).card_type, game)
         # 2) trade
         turn_trade(player, game)
         print(player.resources)
         # 3) build
         turn_build(player, game)
-        # buy dev cards
-        if(player.resources['ore'] > 1 and player.resources['sheep'] > 1 and player.resources['grain'] > 1):
-            player.buy_dev_card(game)
     
 def turn_roll_dice(player, game):
     ''' gives player resources they own settlements on from the dice roll'''

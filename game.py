@@ -27,7 +27,7 @@ class DevelopmentCard:
         if self.card_type == 'knight':
             # player can move robber
             location = random.choice(game.tile_vertices) #TODO: change from random?
-            game.move_robber(location)
+            game.move_robber(location, player)
         elif self.card_type == 'victory_point':
             # add victory point
             player.victory_points += 1
@@ -322,11 +322,11 @@ class Player:
         card = game.draw_dev_card()
         self.dev_cards.append(card)
 
-    def play_dev_card(self, card_type):
+    def play_dev_card(self, card_type, game):
         for card in self.dev_cards:
             if card.card_type == card_type and not card.played:
                 card.played = True
-                print(f"{self.color} played dev card: {card}")
+                print(f"{self.color} played dev card: {card.card_type}")
                 card.use_effect(self, game)
                 return True
         return False
