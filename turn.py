@@ -67,7 +67,12 @@ def turn_roll_dice(player, game):
                     # checl if the settlement is adjacent to the tile
                     if (tile.x, tile.y) in [(v.x, v.y) for v in settlement.location.adjacent_tiles]:
                         player.resources[tile.resource] += 1
-                        print(f"{player.color} player received 1 {tile.resource}")
+                        print(f"{player.color} player received 1 {tile.resource} from settlement")
+
+                for city in player.cities:
+                    if (tile.x, tile.y) in [(v.x, v.y) for v in city.location.adjacent_tiles]:
+                        player.resources[tile.resource] += 2
+                        print(f"{player.color} player received 2 {tile.resource} from city")
 
  
 def turn_trade(player, game):
@@ -145,8 +150,9 @@ def turn_build(player, game):
             print(f"{player.color} built settlement at {location}")
     if can_build_city(player):
         location = find_city_location(player, game)
-        player.build_city(location)
-        print(f"{player.color} upgraded settlement to city at {location}")
+        if location is not None:
+            player.build_city(location)
+            print(f"{player.color} upgraded settlement to city at {location}")
     if can_build_road(player):
         loc1, loc2 = find_road_location(player, game)
         if loc1 is not None and loc2 is not None:
@@ -266,9 +272,10 @@ def find_city_location(player, game):
 
 def count_factors(n):
     count = 0
-    for i in range(1, n + 1):
-        if n % i == 0:
-            count += 1
+    for i in range(1, 7):
+        for j in range(1, 7):
+            if i + j == n:
+                count += 1
     return count
 
 def evaluate_settlement_location(location, game):
