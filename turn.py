@@ -21,10 +21,17 @@ def turn_roll_dice(player, game):
     print(f"{player.color} player rolled number: {tile_number}")
 
     if tile_number == 7:
+        # every player that has more than 7 resource cards must select half of them and return them to bank
+        for p in game.players:
+            if sum(p.resources.values()):
+                needed_resources = calc_needed_resources(player)
+                for _ in range(7):
+                    target_resource = keywithminval(needed_resources)
+                    player.remove_resource(target_resource, 1)
+        # player moves robber
+        location = random.choice(game.tile_vertices)
+        game.move_robber(location, player)
         # no one receives any resources
-        # TODO: every player that has more than 7 resource cards must select half of them and return them to bank
-        # TODO: then they must move the robber to another terrain hex
-        # TODO: then they steal one random resource card from an opponent who has a settlement adjacet to target terrain hex
         print("7 rolled! No one gets any resources.")
     else:
         # find all tiles that match the rolled number
@@ -295,3 +302,19 @@ def evaluate_city_location(location, game):
     # points for upgrading
     score += 2 
     return score
+
+# ---------- general helper methods ----------
+
+def keywithmaxval(dic):
+     """ a) create a list of the dict's keys and values; 
+         b) return the key with the max value"""  
+     v = list(dic.values())
+     k = list(dic.keys())
+     return k[v.index(max(v))]
+
+def keywithminval(dic):
+     """ a) create a list of the dict's keys and values; 
+         b) return the key with the max value"""  
+     v = list(dic.values())
+     k = list(dic.keys())
+     return k[v.index(max(v))]
