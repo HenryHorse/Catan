@@ -10,6 +10,16 @@ In this project, we represent the Settlers of Catan game board as a graph, where
 # How to Run
 Run the catan.py file and you should see the board pop up. You can reset the board to a different initial configuration using the 'r' key, and can run each bot's turn one at a time using the space bar. The terminal displays what the bot did during that move. You can execute the entire game (all turns) at once by hitting the 'x' key. 
 
+# File Overview
+board.py contains functions that aid in creating and initializing the board data structure
+evaluation.py contains functions that evaluate locations on the board as potential building spots
+game.py contains the class representing the game state
+helpers.py contains two helper functions for finding values in a dictionary
+main.py creates a new board and starts running the simulation with PyGame
+models.py contains various data structures such as TileVertex and RoadVertex representing game characteristics
+player.py contains the class representing each player's state
+turn.py contains the function that determines the actions each player can take each turn
+
 ## Contributors
 
 - Shayan Daijavad

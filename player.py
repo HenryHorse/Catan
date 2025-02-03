@@ -1,0 +1,159 @@
+import random
+
+from models import Settlement, City, Road
+from evaluation import evaluate_settlement_location
+
+
+class Player:
+    def __init__(self, color):
+        self.color = color
+        self.resources = {
+            'wood': 0,
+            'grain': 0,
+            'sheep': 0,
+            'ore': 0,
+            'brick': 0,
+        }
+        self.resource_scores = {
+            'wood': 0,
+            'grain': 0,
+            'sheep': 0,
+            'ore': 0,
+            'brick': 0,
+        }
+        self.dev_cards = []
+
+        self.unbuilt_settlements = 5
+        self.settlements = [] # think ab keeping track of location
+
+        self.unbuilt_cities = 4
+        self.cities = []
+
+        self.unbuilt_roads = 15
+        self.roads = []
+        self.victory_points = 0 # need 10 to win
+
+    def initialize_settlements_roads(self, game):
+        ''' builds 2 settlements and 2 roads on the map in random valid locations,
+            returns the location of the second settlement'''
+        settlement_loc1 = self.find_random_valid_settlement_location(game)
+        self.build_settlement(settlement_loc1)
+        game.occupy_tile(settlement_loc1)
+        _, resource_scores = evaluate_settlement_location(settlement_loc1, game)
+        for resource in resource_scores:
+            self.resource_scores[resource] += resource_scores[resource]
+        print(f"{self.color} built 1st settlement at {(settlement_loc1.x, settlement_loc1.y)}")
+
+        road_loc1 = self.find_random_valid_road_location(settlement_loc1, game)
+        self.build_road(settlement_loc1, road_loc1)
+        game.occupy_road(settlement_loc1, road_loc1)
+        print(f"{self.color} built 1st road from {(settlement_loc1.x, settlement_loc1.y)} to {(road_loc1.x, road_loc1.y)}")
+
+        settlement_loc2 = self.find_random_valid_settlement_location(game)
+        self.build_settlement(settlement_loc2)
+        game.occupy_tile(settlement_loc2)
+        _, resource_scores = evaluate_settlement_location(settlement_loc1, game)
+        for resource in resource_scores:
+            self.resource_scores[resource] += resource_scores[resource]
+        print(f"{self.color} built 2nd settlement at {(settlement_loc2.x, settlement_loc2.y)}")
+
+        road_loc2 = self.find_random_valid_road_location(settlement_loc2, game)
+        self.build_road(settlement_loc2, road_loc2)
+        game.occupy_road(settlement_loc2, road_loc2)
+        print(f"{self.color} built 2nd road from {(settlement_loc2.x, settlement_loc2.y)} to {(road_loc2.x, road_loc2.y)}")
+
+        self.resources = {
+            'wood': 0,
+            'grain': 0,
+            'sheep': 0,
+            'ore': 0,
+            'brick': 0,
+        }
+
+        # for all adjacent tiles to the settlement 2, add resource for player
+        for tile in settlement_loc2.adjacent_tiles:
+            self.add_resource(tile.resource, 1)
+
+
+
+        # return settlement_loc2
+
+    def find_random_valid_settlement_location(self, game):
+        ''' returns a random road vertex that is valid '''
+        valid_locations = [v for v in game.road_vertices if game.is_valid_initial_settlement_location(v)]
+        location_scores = {}
+        for valid_location in valid_locations:
+            location_scores[valid_location], _ = evaluate_settlement_location(valid_location, game)
+        # random_choice = random.choice(valid_locations)
+        # # This prevents the initial settlements from being an edge location without being a harbor, because that is a bad move
+        # while (len(random_choice.adjacent_tiles) == 2 or len(random_choice.adjacent_roads) == 2):
+        #     random_choice = random.choice(valid_locations)
+        best_location = max(location_scores.items(), key = lambda item: item[1])
+        return best_location[0]
+
+
+
+    def find_random_valid_road_location(self, settlement_location, game):
+        ''' returns random road vertex that is the other point to the road, where the first point is the settlement'''
+        #TODO: verify that this logic is right
+        # valid_road_locations = [v for v in adjacent_vertices]
+        return random.choice(settlement_location.adjacent_roads)
+
+    def add_resource(self, resource, amount):
+        if resource != 'desert':
+            self.resources[resource] += amount
+
+    def remove_resource(self, resource, amount):
+        self.resources[resource] -= amount
+
+    def buy_dev_card(self, game):
+        # dev card costs 1 ore, 1 wool, 1 grain
+        self.remove_resource('ore', 1)
+        self.remove_resource('sheep', 1)
+        self.remove_resource('grain', 1)
+
+        card = game.draw_dev_card()
+        self.dev_cards.append(card)
+
+    def play_dev_card(self, card_type, game):
+        for card in self.dev_cards:
+            if card.card_type == card_type and not card.played:
+                card.played = True
+                print(f"{self.color} played dev card: {card.card_type}")
+                card.use_effect(self, game)
+                return True
+        return False
+
+    def build_settlement(self, location):
+        # can only build settlement if unbuilt settlements > 0
+        settlement = Settlement(self.color, location)
+        self.settlements.append(settlement)
+        self.unbuilt_settlements -= 1
+        self.victory_points += 1
+        self.resources['grain'] -= 1
+        self.resources['brick'] -= 1
+        self.resources['wood'] -= 1
+        self.resources['sheep'] -= 1
+
+    def build_city(self, location):
+        # can only build city if unbuilt cities > 0
+        # check if the location has a settlement owned by the player
+        for settlement in self.settlements:
+            if settlement.location == location:
+                self.settlements.remove(settlement)
+        city = City(self.color, location)
+        self.cities.append(city)
+        self.unbuilt_cities -= 1
+        self.victory_points += 2
+        self.resources['grain'] -= 2
+        self.resources['ore'] -= 3
+
+    def build_road(self, loc1, loc2):
+        road = Road(self.color, loc1, loc2)
+        self.roads.append(road)
+        self.unbuilt_roads -= 1
+        self.resources['wood'] -= 1
+        self.resources['brick'] -= 1
+
+    def get_victory_points(self):
+        return self.victory_points
