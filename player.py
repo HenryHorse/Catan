@@ -113,11 +113,13 @@ class Player:
         self.remove_resource('grain', 1)
 
         card = game.draw_dev_card()
+        if card.card_type == 'victory_point':
+            self.victory_points += 1
         self.dev_cards.append(card)
 
     def play_dev_card(self, card_type, game):
         for card in self.dev_cards:
-            if card.card_type == card_type and not card.played:
+            if card.card_type == card_type and not card.played and card.card_type != 'victory_point':
                 card.played = True
                 print(f"{self.color} played dev card: {card.card_type}")
                 card.use_effect(self, game)
@@ -144,7 +146,7 @@ class Player:
         city = City(self.color, location)
         self.cities.append(city)
         self.unbuilt_cities -= 1
-        self.victory_points += 2
+        self.victory_points += 1
         self.resources['grain'] -= 2
         self.resources['ore'] -= 3
 
