@@ -20,6 +20,9 @@ Run the catan.py file and you should see the board pop up. You can reset the boa
 - **player.py** contains the class representing each player's state
 - **turn.py** contains the function that determines the actions each player can take each turn
 
+# How to Run
+Run the catan.py file and you should see the board pop up. You can reset the board to a different initial configuration using the 'r' key, and can run each bot's turn one at a time using the space bar. The terminal displays what the bot did during that move. You can execute the entire game (all turns) at once by hitting the 'x' key. 
+
 ## Contributors
 
 - Shayan Daijavad
