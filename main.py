@@ -1,6 +1,8 @@
 from game import *
 from models import TileVertex
 import pygame
+import argparse
+import sys
 
 from player import Player
 from turn import *
@@ -99,37 +101,40 @@ winner = None
 centers = []
 vertices = []
 
-def start():
+def start(num_players):
     global game, players, current_player_index, winner, centers, vertices
     centers, vertices = initialize_game()
     print("--------initializing games and players--------")
     game = Game()
     game.initialize_game(centers, vertices)
 
-    player_red = Player('red')
-    game.add_player(player_red)
-    player_red.initialize_settlements_roads(game)
+    player_colors = ['red', 'blue', 'white', 'orange']
+    players = []
 
-    player_blue = Player('blue')
-    game.add_player(player_blue)
-    player_blue.initialize_settlements_roads(game)
-
-    player_white = Player('white')    
-    game.add_player(player_white)
-    player_white.initialize_settlements_roads(game)
-
-    player_orange = Player('orange')
-    game.add_player(player_orange)
-    player_orange.initialize_settlements_roads(game)
+    for i in range(num_players):  # Only create the requested number of players
+        player = Player(player_colors[i])
+        game.add_player(player)
+        player.initialize_settlements_roads(game)
+        players.append(player)
 
     winner = None
     current_player_index = 0
-    players = [player_red, player_blue, player_white, player_orange]
     draw_players(players)
 
+def parse_arguments():
+    parser = argparse.ArgumentParser(description="Hexagonal board game simulation")
+    parser.add_argument("--disable-trading", action="store_true", help="Disable trading between players")
+    parser.add_argument("--players", type=int, choices=[2,3,4], default=4, help="Number of players (2-4)")
+    return parser.parse_args()
+
 def main():
-    global game, players, current_player_index, winner, centers, vertices
-    start()
+    global game, players, current_player_index, winner, centers, vertices, disable_trading
+
+    args = parse_arguments()
+    num_players = args.players
+    disable_trading = args.disable_trading
+
+    start(num_players)
     # Main loop
     running = True
     while running:
@@ -138,12 +143,12 @@ def main():
                 running = False
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_r:
-                    start()
+                    start(num_players)
                 if event.key == pygame.K_SPACE and winner is None:
                     current_player = players[current_player_index]
                     print(f"--------{current_player.color} takes turn--------")
                     print(current_player.resources)
-                    if turn(current_player, game):
+                    if turn(current_player, game, disable_trading):
                         winner = current_player
                     else:
                         current_player_index = (current_player_index + 1) % len(players)
@@ -154,7 +159,7 @@ def main():
                         current_player = players[current_player_index]
                         print(f"--------{current_player.color} takes turn--------")
                         print(current_player.resources)
-                        if turn(current_player, game):
+                        if turn(current_player, game, disable_trading):
                             winner = current_player
                         else:
                             current_player_index = (current_player_index + 1) % len(players)

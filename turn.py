@@ -5,7 +5,7 @@ from evaluation import evaluate_settlement_location, evaluate_road_location, eva
 from helpers import keywithminval
 
 
-def turn(player, game):
+def turn(player, game, disable_trading):
     if player.victory_points >= 10:
         return True
     else:
@@ -20,7 +20,7 @@ def turn(player, game):
         if((len(player.dev_cards)) > 0):
             player.play_dev_card((random.choice(player.dev_cards)).card_type, game)
         # 2) trade
-        turn_trade(player, game)
+        turn_trade(player, game, disable_trading)
         print(player.resources)
         # 3) build
         turn_build(player, game)
@@ -71,7 +71,7 @@ def turn_roll_dice(player, game):
                         player.resources[tile.resource] += 2
                         print(f"{player.color} player received 2 {tile.resource} from city")
 
-def turn_trade(player, game):
+def turn_trade(player, game, disable_trading):
     ''' trade any excess resources for needed ones'''
     needed_resources = calc_needed_resources(player)
     for resource, amount in needed_resources.items():
@@ -80,27 +80,28 @@ def turn_trade(player, game):
             deficit = amount - player.resources[resource]
             
             # try trading w other players first
-            while deficit > 0:
-                trade_made = False
-                for other_player in game.players:
-                    if other_player != player:
-                        other_player, trade_resource = can_domestic_trade(player, resource, game.players)
-                        if other_player:
-                            for potential_exchange_resource in player.resources:
-                                trade_player, exchange_resource = can_domestic_trade(other_player, potential_exchange_resource, game.players)
-                                if trade_player and player.color == trade_player.color:
-                                    print(f"{player.color} trades with {other_player.color} for {resource} giving {exchange_resource}")
-                                    player.resources[resource] += 1
-                                    player.resources[exchange_resource] -= 1
-                                    other_player.resources[resource] -= 1
-                                    other_player.resources[exchange_resource] += 1
-                                    deficit -= 1
-                                    trade_made = True
+            if disable_trading is False:
+                while deficit > 0:
+                    trade_made = False
+                    for other_player in game.players:
+                        if other_player != player:
+                            other_player, trade_resource = can_domestic_trade(player, resource, game.players)
+                            if other_player:
+                                for potential_exchange_resource in player.resources:
+                                    trade_player, exchange_resource = can_domestic_trade(other_player, potential_exchange_resource, game.players)
+                                    if trade_player and player.color == trade_player.color:
+                                        print(f"{player.color} trades with {other_player.color} for {resource} giving {exchange_resource}")
+                                        player.resources[resource] += 1
+                                        player.resources[exchange_resource] -= 1
+                                        other_player.resources[resource] -= 1
+                                        other_player.resources[exchange_resource] += 1
+                                        deficit -= 1
+                                        trade_made = True
+                                        break
+                                if trade_made:
                                     break
-                            if trade_made:
-                                break
-                if not trade_made:
-                    break  # exit loop if no trades made
+                    if not trade_made:
+                        break  # exit loop if no trades made
             
             # then try maritime trade
             while deficit > 0:
