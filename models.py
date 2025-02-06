@@ -77,9 +77,10 @@ class DevelopmentCard:
             # player can move robber
             location = random.choice(game.tile_vertices) #TODO: change from random?
             game.move_robber(location, player)
-        elif self.card_type == 'victory_point':
+        # you dont use victory point cards, you just have them
+        # elif self.card_type == 'victory_point':
             # add victory point
-            player.victory_points += 1
+            # player.victory_points += 1
         elif self.card_type == 'road_building':
             # can place 2 roads as if just built them
             loc1, loc2 = find_road_location(player, game)
