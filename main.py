@@ -7,6 +7,7 @@ import sys
 from player import Player
 from turn import *
 from board import *
+from serialization import *
 
 
 def initialize_game():
@@ -116,6 +117,10 @@ def start(num_players):
         game.add_player(player)
         player.initialize_settlements_roads(game)
         players.append(player)
+
+    serialization = BrickRepresentation(5)
+    serialization.recursive_serialize(game, game.tile_vertices[0])
+    print(serialization.to_1d())
 
     winner = None
     current_player_index = 0
