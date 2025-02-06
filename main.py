@@ -222,7 +222,7 @@ def start(num_players):
         players.append(player)
 
     serialization = BrickRepresentation(5)
-    serialization.recursive_serialize(game, game.tile_vertices[0])
+    serialization.recursive_serialize(game, CENTER)
     print(serialization.to_1d())
 
     winner = None
