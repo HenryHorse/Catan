@@ -175,52 +175,32 @@ class Player:
 
 
     def find_longest_road_size(self):
-        graph = defaultdict(set)
+        graph = defaultdict(list)
         for road in self.roads:
-            graph[road.rv1].add(road.rv2)
-            graph[road.rv2].add(road.rv1)
+            graph[road.rv1].append(road)
+            graph[road.rv2].append(road)
 
-        if not graph:
-            return 0
+        max_length = 0
+        best_path = []
 
-        def dfs(start):
-            stack = [(start, 0)]
-            visited = set()
-            visited.add(start)
-            farthest_node, max_distance = start, 0
+        def dfs(vertex, visited_roads, current_length, current_path):
+            nonlocal max_length, best_path
+            if current_length > max_length:
+                max_length = current_length
+                best_path = current_path.copy()
 
-            while stack:
-                current_node, distance = stack.pop()
-                if distance > max_distance:
-                    farthest_node, max_distance = current_node, distance
+            for road in graph.get(vertex, []):
+                if road not in visited_roads:
+                    visited_roads.add(road)
+                    next_vertex = road.rv2 if road.rv1 == vertex else road.rv1
+                    current_path.append(road)
+                    dfs(next_vertex, visited_roads, current_length + 1, current_path)
+                    current_path.pop()
+                    visited_roads.remove(road)
 
-                for neighbor in graph[current_node]:
-                    if neighbor not in visited:
-                        visited.add(neighbor)
-                        stack.append((neighbor, distance + 1))
+        for vertex in graph:
+            dfs(vertex, set(), 0, [])
 
-            return farthest_node, max_distance, visited
-
-
-        visited_global = set()
-        max_longest_path = 0
-
-        for node in graph:
-            if node not in visited_global:
-                # We do one DFS to get the farthest point from our starting point
-                # Then we do another DFS to get the farthest point from that farthest point
-                # Giving us the longest path in the component
-                farthest_A, _, visited_component = dfs(node)
-                _, longest_path, _ = dfs(farthest_A)
-
-                max_longest_path = max(max_longest_path, longest_path)
-
-                visited_global.update(visited_component)
-
-        self.longest_road_size = max_longest_path
-        return max_longest_path
-
-
-
-
-
+        self.longest_road_size = max_length
+        self.longest_road_path = best_path
+        return max_length
