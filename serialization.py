@@ -16,21 +16,30 @@ RESOURCE_MAP = {
     'brick': 5,
 }
 
+HARBOR_MAP = {
+    None: 0, '3:1 any': 1, '2:1 ore': 2, '2:1 wood': 3, '2:1 brick': 4, '2:1 grain': 5, '2:1 sheep': 6
+}
+
+
 @dataclass(init=False)
 class BrickRepresentation:
     size: int
     width: int
     height: int
-    board: list[list[int]]
+    board: list[list[list[int]]]
 
-    def __init__(self, size: int):
+    def __init__(self, size: int, num_players: int):
         self.size = size
         self.width = 4 * size + 1
         self.height = 2 * size + 1
-        self.board = [[0 for _ in range(self.width)] for _ in range(self.height)]
-    
+        self.num_players = num_players
+        self.board = [[[0 for _ in range(self.width)] for _ in range(self.height)] for _ in range(num_players + 1)]
+
     def to_1d(self):
         return [cell for row in self.board for cell in row]
+    
+    def board_state(self):
+        return self.board[-1]
     
     def recursive_serialize(
             self,
@@ -51,10 +60,11 @@ class BrickRepresentation:
     
     def serialize_tile(self, game: Game, tile: TileVertex, center: tuple[int, int]):
         x, y = center
-
-        self.board[y][x] = tile.number or 0
-        self.board[y][x - 1] = RESOURCE_MAP[tile.resource]
-        self.board[y][x + 1] = 1 if (game.robber.x, game.robber.y) == (tile.x, tile.y) else 0
+        
+        # Last channel for board state
+        self.board[-1][y][x] = tile.number or 0
+        self.board[-1][y][x - 1] = RESOURCE_MAP[tile.resource]
+        self.board[-1][y][x + 1] = 1 if (game.robber.x, game.robber.y) == (tile.x, tile.y) else 0  
 
         for index, intersection in enumerate(tile.adjacent_roads):
             next_intersection = tile.adjacent_roads[(index + 1) % len(tile.adjacent_roads)]
@@ -62,6 +72,13 @@ class BrickRepresentation:
             self.serialize_intersection(game, intersection, (x + int_dx, y + int_dy))
             road_dx, road_dy = BrickRepresentation.get_road_displacement(tile, intersection)
             self.serialize_road(game, intersection, next_intersection, (x + road_dx, y + road_dy))
+
+            harbor_value = 0
+            if hasattr(intersection, "harbor") and intersection.harbor:
+                harbor_value = HARBOR_MAP.get(intersection.harbor_type, 0)
+                self.board[-1][y+int_dy][x+int_dx] = harbor_value  # Store harbor info
+
+
     
     def serialize_intersection(self, game: Game, intersection: RoadVertex, position: tuple[int, int]):
         x, y = position
@@ -69,11 +86,11 @@ class BrickRepresentation:
             player: Player = player
             for settlement in player.settlements:
                 if (settlement.location.x, settlement.location.y) == (x, y):
-                    self.board[y][x] = index + len(game.players)
+                    self.board[index][y][x] = 1  # Village placement on channel of player
                     return
             for city in player.cities:
                 if (city.location.x, city.location.y) == (x, y):
-                    self.board[y][x] = index + len(game.players) * 2
+                    self.board[index][y][x] = 2  # City placement on channel of player
                     return
     
     def serialize_road(self, game: Game, intersection_1: RoadVertex, intersection_2: RoadVertex, position: tuple[int, int]):
@@ -85,8 +102,8 @@ class BrickRepresentation:
                     (road.rv2.x, road.rv2.y) == (intersection_2.x, intersection_2.y)) or \
                    ((road.rv1.x, road.rv1.y) == (intersection_2.x, intersection_2.y) and \
                     (road.rv2.x, road.rv2.y) == (intersection_1.x, intersection_1.y)):
-                    self.board[y][x] = index
-                    return
+                    self.board[index][y][x] = 1  # Road placement on channel of player
+                    return           
     
     def get_intersection_displacement(tile: TileVertex, intersection: RoadVertex) -> tuple[int, int]:
         if intersection.x == tile.x and intersection.y < tile.y:

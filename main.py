@@ -221,9 +221,10 @@ def start(num_players):
         player.initialize_settlements_roads(game)
         players.append(player)
 
-    serialization = BrickRepresentation(5)
+    serialization = BrickRepresentation(5,num_players)
     serialization.recursive_serialize(game, CENTER)
-    print(serialization.to_1d())
+    print(serialization)
+
 
     winner = None
     current_player_index = 0
