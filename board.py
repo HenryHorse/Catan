@@ -3,7 +3,7 @@
 import math
 import random
 
-from models import TileVertex, RoadVertex
+from models import TileVertex, RoadVertex, DrawingPoint
 
 
 # Function to get a hexagon corner (6 possible)

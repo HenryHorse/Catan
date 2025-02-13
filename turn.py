@@ -18,6 +18,8 @@ def turn(player, game, disable_trading):
     # play dev cards
     if((len(player.dev_cards)) > 0):
         player.play_dev_card((random.choice(player.dev_cards)).card_type, game)
+    if player.army_size > game.largest_army_size:
+        game.award_largest_army(player)
     if player.victory_points >= 10:
         return True
     # 2) trade
@@ -141,6 +143,8 @@ def turn_build(player, game):
             player.build_road(loc1, loc2)
             game.occupy_road(loc1, loc2)
             print(f"{player.color} built road between {loc1} and {loc2}")
+            if player.find_longest_road_size() > game.longest_road_size:
+                game.award_longest_road(player)
     
 
 

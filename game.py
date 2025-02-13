@@ -13,6 +13,10 @@ class Game:
         self.harbors = {} # key: location of harbor, val: trade ratio
         self.robber = TileVertex(0, 0) 
         self.dev_card_deck =[]
+        self.largest_army_player = None
+        self.largest_army_size = 2 # Initialized to 2 because the first person to get an army > 2 takes largest army
+        self.longest_road_player = None
+        self.longest_road_size = 4 # Initialized to 4 because the first person to get a road > 4 takes longest road
     
     def initialize_game(self, tile_vertices, road_vertices):
         # initialize vertices
@@ -56,6 +60,7 @@ class Game:
             return self.dev_card_deck.pop()
         return None
 
+    # TODO Fix this so it only takes 1 resource from 1 person, not 1 from every person adjacent to robber
     def move_robber(self, location, player):
         ''' moves robber to specified location (x, y) and whoever moves gets to steal player's resources who has settlement adj to tile'''
         print(f"{player.color} moves robber to {location}")
@@ -159,4 +164,37 @@ class Game:
     #         if vertex.x == x and vertex.y == y:
     #             return vertex.adjacent_tiles
     #     return []
+
+    def award_largest_army(self, new_largest_army_player):
+        if new_largest_army_player != self.largest_army_player:
+            print(f"{new_largest_army_player.color} now has the largest army")
+
+            if self.largest_army_player:
+                print(f"{self.largest_army_player.color} loses largest army")
+                self.largest_army_player.victory_points -= 2
+                self.largest_army_player.has_largest_army = False
+
+            new_largest_army_player.victory_points += 2
+            new_largest_army_player.has_largest_army = True
+
+            self.largest_army_size = new_largest_army_player.army_size
+            self.largest_army_player = new_largest_army_player
+
+    def award_longest_road(self, new_longest_road_player):
+        if new_longest_road_player != self.longest_road_player:
+            print(f"{new_longest_road_player.color} now has the longest road")
+
+            if self.longest_road_player:
+                print(f"{self.longest_road_player.color} loses longest road")
+                self.longest_road_player.victory_points -= 2
+                self.longest_road_player.has_longest_road = False
+
+            new_longest_road_player.victory_points += 2
+            new_longest_road_player.has_longest_road = True
+
+            self.longest_road_size = new_longest_road_player.longest_road_size
+            self.longest_road_player = new_longest_road_player
+
+
+        
 

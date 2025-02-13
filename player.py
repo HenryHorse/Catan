@@ -1,4 +1,5 @@
 import random
+from collections import defaultdict
 
 from models import Settlement, City, Road
 from evaluation import evaluate_settlement_location
@@ -32,6 +33,13 @@ class Player:
         self.unbuilt_roads = 15
         self.roads = []
         self.victory_points = 0 # need 10 to win
+
+
+        self.longest_road_size = 0
+        self.has_longest_road = False
+
+        self.army_size = 0
+        self.has_largest_army = False
 
     def initialize_settlements_roads(self, game):
         ''' builds 2 settlements and 2 roads on the map in random valid locations,
@@ -123,6 +131,10 @@ class Player:
                 card.played = True
                 print(f"{self.color} played dev card: {card.card_type}")
                 card.use_effect(self, game)
+
+                if card.card_type == 'knight':
+                    self.army_size += 1
+
                 return True
         return False
 
@@ -157,5 +169,58 @@ class Player:
         self.resources['wood'] -= 1
         self.resources['brick'] -= 1
 
+
     def get_victory_points(self):
         return self.victory_points
+
+
+    def find_longest_road_size(self):
+        graph = defaultdict(set)
+        for road in self.roads:
+            graph[road.rv1].add(road.rv2)
+            graph[road.rv2].add(road.rv1)
+
+        if not graph:
+            return 0
+
+        def dfs(start):
+            stack = [(start, 0)]
+            visited = set()
+            visited.add(start)
+            farthest_node, max_distance = start, 0
+
+            while stack:
+                current_node, distance = stack.pop()
+                if distance > max_distance:
+                    farthest_node, max_distance = current_node, distance
+
+                for neighbor in graph[current_node]:
+                    if neighbor not in visited:
+                        visited.add(neighbor)
+                        stack.append((neighbor, distance + 1))
+
+            return farthest_node, max_distance, visited
+
+
+        visited_global = set()
+        max_longest_path = 0
+
+        for node in graph:
+            if node not in visited_global:
+                # We do one DFS to get the farthest point from our starting point
+                # Then we do another DFS to get the farthest point from that farthest point
+                # Giving us the longest path in the component
+                farthest_A, _, visited_component = dfs(node)
+                _, longest_path, _ = dfs(farthest_A)
+
+                max_longest_path = max(max_longest_path, longest_path)
+
+                visited_global.update(visited_component)
+
+        self.longest_road_size = max_longest_path
+        return max_longest_path
+
+
+
+
+

@@ -4,6 +4,18 @@ from turn import find_road_location, calc_needed_resources
 from helpers import keywithmaxval
 
 
+# This class is representative of the PyGame x and y coordinates at which a given vertex is drawn at
+class DrawingPoint:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+    def __eq__(self, other):
+        if isinstance(other, DrawingPoint):
+            return (self.x, self.y) == (other.x, other.y)
+
+
+
 class TileVertex:
     def __init__(self, x, y):
         self.x = x
@@ -89,10 +101,17 @@ class DevelopmentCard:
                 player.build_road(loc1, loc2)
                 game.occupy_road(loc1, loc2)
                 print(f"{player.color} built road between {loc1} and {loc2}")
+                if player.find_longest_road_size() > game.longest_road_size:
+                    game.award_longest_road(player)
             if loc3 and loc4:
                 player.build_road(loc3, loc4)
                 game.occupy_road(loc3, loc4)
                 print(f"{player.color} built road between {loc3} and {loc4}")
+                if player.find_longest_road_size() > game.longest_road_size:
+                    game.award_longest_road(player)
+            # Reimburse resources
+            player.resources['wood'] += 2
+            player.resources['brick'] += 2
         elif self.card_type == 'year_of_plenty':
             # draw 2 most needed resource cards of choice from bank
             needed_resources = calc_needed_resources(player)
