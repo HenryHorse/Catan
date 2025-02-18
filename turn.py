@@ -52,6 +52,11 @@ def turn_roll_dice(player, game):
                     if p.resources[target_resource] > 1:
                         print(f"{p.color} loses 1 {target_resource}")
                         p.remove_resource(target_resource, 1)
+                    else:
+                        valid_resources = [resource for resource, amount in p.resources.items() if amount > 0]
+                        random_resource = random.choice(valid_resources)
+                        print(f"{p.color} loses 1 {random_resource}")
+                        p.remove_resource(random_resource, 1)
             print(f"{p.color}'s resources: {p.resources}")
         # player moves robber
         location = random.choice(game.tile_vertices)
@@ -166,17 +171,17 @@ def calc_needed_resources(player):
     
     # check what player can build and set needed resources
     #building a settlement requires 1 brick, 1 wood, 1 grain, 1 sheep
-    if player.unbuilt_settlements > 0:
+    for i in range(0, player.unbuilt_settlements):
         needed_resources['brick'] += 1
         needed_resources['wood'] += 1
         needed_resources['grain'] += 1
         needed_resources['sheep'] += 1
     #building a city requires 3 grain and 2 ore
-    elif player.unbuilt_cities > 0:
+    for i in range(0, player.unbuilt_cities):
         needed_resources['grain'] += 2
         needed_resources['ore'] += 3
     # building a road requires 1 brick and 1 wood
-    elif player.unbuilt_roads > 0: 
+    for i in range(0, player.unbuilt_roads):
         needed_resources['brick'] += 1
         needed_resources['wood'] += 1
     
