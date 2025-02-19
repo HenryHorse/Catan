@@ -10,6 +10,24 @@ from board import *
 
 from collections import Counter
 
+# ---------------- Helper functions ----------------
+
+def get_vertex_at_pos(pos, vertices, threshold=50):
+    """Return a vertex from 'vertices' if the click is within a threshold distance."""
+    for vertex in vertices:
+        if abs(vertex.x - pos[0]) < threshold and abs(vertex.y - pos[1]) < threshold:
+            return vertex
+    return None
+
+def is_adjacent_to_player_road(vertex, player, game):
+    """
+    Return True if the clicked vertex is adjacent to one of the player's roads.
+    """
+    for road in player.roads:
+        if vertex == road.rv1 or vertex == road.rv2:
+            return True
+    return False
+
 
 def initialize_game():
     centers, vertices = generate_hex_board(CENTER, SIZE)
@@ -22,7 +40,8 @@ def initialize_game():
 BOARD_AREA_WIDTH = 800
 BOARD_AREA_HEIGHT = 800
 STATS_AREA_WIDTH = 220
-SCREEN_SIZE = (BOARD_AREA_WIDTH + STATS_AREA_WIDTH, BOARD_AREA_HEIGHT)
+ACTION_AREA_HEIGHT = 100
+SCREEN_SIZE = (BOARD_AREA_WIDTH + STATS_AREA_WIDTH, BOARD_AREA_HEIGHT + ACTION_AREA_HEIGHT)
 
 BACKGROUND_COLOR = (0, 160, 255)
 BOARD_BG_COLOR = (0, 160, 255)
@@ -97,12 +116,10 @@ def draw_players(players):
         for road in player.roads:
             rv1 = road.rv1
             rv2 = road.rv2
-            pygame.draw.line(screen, color_map[player.color], (int(rv1.x), int(rv1.y)), (int(rv2.x), int(rv2.y)), 3)
-            
+            pygame.draw.line(screen, color_map[player.color], (int(rv1.x), int(rv1.y)), (int(rv2.x), int(rv2.y)), 3)   
 
 def draw_robber(game):
     pygame.draw.circle(screen, color_map['robber'], (game.robber.x, game.robber.y), 12)
-
 
 def draw_turn_info(turn_number, current_player):
     """Draw turn number and current player's turn in the top left of the board area."""
@@ -110,12 +127,9 @@ def draw_turn_info(turn_number, current_player):
     info_surface = stats_title_font.render(info_text, True, (0, 0, 0))
     screen.blit(info_surface, (10, 10))
 
-
-
 def draw_player_stats(players):
     """Draw each player's stats in the right-side stats area with resources on the left
     and dev cards on the right. Also, show Longest Road and Largest Army statuses next to the title."""
-    # stats background
     stats_rect = pygame.Rect(BOARD_AREA_WIDTH, 0, STATS_AREA_WIDTH, BOARD_AREA_HEIGHT)
     pygame.draw.rect(screen, STATS_BG_COLOR, stats_rect)
     
@@ -156,7 +170,7 @@ def draw_player_stats(players):
         
         header_y += header_surface.get_height() + 5
         
-        # victory points
+        # VP
         vp_text = f"VP: {player.victory_points}"
         vp_surface = stats_font.render(vp_text, True, (0, 0, 0))
         screen.blit(vp_surface, (header_x, header_y))
@@ -166,7 +180,7 @@ def draw_player_stats(players):
         right_col_x = panel_x + STATS_AREA_WIDTH // 2 + panel_padding
         col_y = header_y
         
-        # Left Column: Resources
+        # Resources
         res_header = stats_font.render("Resources:", True, (0, 0, 0))
         screen.blit(res_header, (left_col_x, col_y))
         col_y += res_header.get_height() + 2
@@ -177,7 +191,7 @@ def draw_player_stats(players):
             screen.blit(res_surface, (left_col_x + 5, col_y))
             col_y += res_surface.get_height() + 2
         
-        # Right Column: Development Cards
+        # Development Cards
         dev_y = header_y
         dev_header = stats_font.render("Dev Cards:", True, (0, 0, 0))
         screen.blit(dev_header, (right_col_x, dev_y))
@@ -196,6 +210,31 @@ def draw_player_stats(players):
             screen.blit(none_surface, (right_col_x + 5, dev_y))
             dev_y += none_surface.get_height() + 2
 
+def draw_action_bar(screen, active=True):
+    """
+    Draw only the Build Road and End Turn buttons in the action bar.
+    Returns a dict mapping button labels to their pygame.Rect.
+    """
+    bar_height = ACTION_AREA_HEIGHT = 100
+    bar_rect = pygame.Rect(0, SCREEN_SIZE[1] - bar_height, SCREEN_SIZE[0], bar_height)
+    bg_color = (200, 200, 200) if active else (150, 150, 150)
+    pygame.draw.rect(screen, bg_color, bar_rect)
+    
+    # Only two buttons for human actions.
+    buttons = {
+        "Build Road": pygame.Rect(10, SCREEN_SIZE[1] - 90, 150, 40),
+        "End Turn": pygame.Rect(650, SCREEN_SIZE[1] - 90, 150, 40)
+    }
+    
+    for label, rect in buttons.items():
+        border_color = (0, 0, 0) if active else (100, 100, 100)
+        pygame.draw.rect(screen, border_color, rect, 2)
+        text_color = (0, 0, 0) if active else (100, 100, 100)
+        text_surface = stats_title_font.render(label, True, text_color)
+        text_rect = text_surface.get_rect(center=rect.center)
+        screen.blit(text_surface, text_rect)
+    
+    return buttons
 
 game = None
 players = []
@@ -204,7 +243,7 @@ winner = None
 centers = []
 vertices = []
 
-def start(num_players):
+def start(num_players, human_flag=False):
     global game, players, current_player_index, winner, centers, vertices
     centers, vertices = initialize_game()
     print("--------initializing games and players--------")
@@ -213,21 +252,38 @@ def start(num_players):
 
     player_colors = ['red', 'blue', 'white', 'orange']
     players = []
-
-    for i in range(num_players):  # Only create the requested number of players
+    for i in range(num_players):
         player = Player(player_colors[i])
+        if human_flag and i == 0:
+            player.is_human = True
+        else:
+            player.is_human = False
         game.add_player(player)
-        player.initialize_settlements_roads(game)
         players.append(player)
+
+        draw_grid(centers, vertices)
+        draw_players(players)
+        draw_robber(game)
+        draw_turn_info(0, players[0])
+        draw_player_stats(players)
+        draw_action_bar(screen, active=False)
+        pygame.display.flip()
+
+        if player.is_human:
+            human_initialize_settlements_roads(player, game, players)
+        else:
+            player.initialize_settlements_roads(game)
 
     winner = None
     current_player_index = 0
     draw_players(players)
 
+
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Hexagonal board game simulation")
     parser.add_argument("--disable-trading", action="store_true", help="Disable trading between players")
     parser.add_argument("--players", type=int, choices=[2,3,4], default=4, help="Number of players (2-4)")
+    parser.add_argument("--human", action="store_true", help="Set first player (red) as human")
     return parser.parse_args()
 
 def main():
@@ -236,12 +292,16 @@ def main():
     args = parse_arguments()
     num_players = args.players
     disable_trading = args.disable_trading
+    human = args.human
 
-    start(num_players)
+    start(num_players, human)
+
     # Main loop
     turn_num = 1
     current_player = players[current_player_index]
     running = True
+    current_action = None
+
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -249,7 +309,7 @@ def main():
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_r:
                     turn_num = 1
-                    start(num_players)
+                    start(num_players, human)
                 if event.key == pygame.K_SPACE and winner is None:
                     current_player = players[current_player_index]
                     pygame.display.flip()
@@ -278,24 +338,134 @@ def main():
                             print(f"The winner is {winner.color}")
 
 
+        is_human_turn = players[current_player_index].is_human
         draw_grid(centers, vertices)
         draw_players(players)
         draw_robber(game)
         draw_turn_info(turn_num, players[current_player_index])
         draw_player_stats(players)
+        draw_action_bar(screen, active=is_human_turn)
         pygame.display.flip()
 
     pygame.quit()
 
-    
 
-    # while not turn(player_red, game):
-    #     pass
-    # print("Red player wins!")
+def human_select_settlement(game):
+    """Wait for the human player to click on a valid settlement vertex."""
+    waiting = True
+    selected_vertex = None
+    prompt_text = "Click on a valid vertex to place your settlement."
+    while waiting:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                pos = pygame.mouse.get_pos()
+                # Iterate over all vertices and check if click is close.
+                for vertex in game.road_vertices:
+                    if abs(vertex.x - pos[0]) < 50 and abs(vertex.y - pos[1]) < 50:
+                        if game.is_valid_initial_settlement_location(vertex):
+                            selected_vertex = vertex
+                            waiting = False
+                            break
+    return selected_vertex
 
-    # test getting resources
-    # res = key, val = random.choice(list(game.harbors.items()))
-    # player_blue.settlements.append((key))
+def human_select_road(settlement_vertex, game, player):
+    """
+    Wait for the human to click on a vertex adjacent to the given settlement to place their road.
+    Only accept the selection if the road is valid (i.e. not already occupied and connected properly).
+    """
+    waiting = True
+    selected_road_vertex = None
+    while waiting:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                pos = pygame.mouse.get_pos()
+                # Only consider vertices adjacent to the settlement.
+                for candidate in settlement_vertex.adjacent_roads:
+                    if abs(candidate.x - pos[0]) < 50 and abs(candidate.y - pos[1]) < 50:
+                        # Check that placing a road from the settlement to the candidate is valid.
+                        if game.is_valid_road_location(settlement_vertex, candidate, player):
+                            selected_road_vertex = candidate
+                            waiting = False
+                            break
+                        else:
+                            print("Invalid road location! Either the road already exists or it isn't connected properly. Please try again.")
+    return selected_road_vertex
+
+def human_initialize_settlements_roads(player, game, players):
+    """Interactive version for the human player's initial placement."""
+    # Human selects first settlement.
+    print(f"{player.color} (human) select your first settlement:")
+    settlement_loc1 = human_select_settlement(game)
+    player.build_settlement(settlement_loc1)
+    game.occupy_tile(settlement_loc1)
+    print(f"{player.color} built 1st settlement at {(settlement_loc1.x, settlement_loc1.y)}")
+
+    draw_grid(centers, vertices)
+    draw_players(players)
+    draw_robber(game)
+    draw_turn_info(0, players[0])
+    draw_player_stats(players)
+    draw_action_bar(screen, active=False)
+    pygame.display.flip()
+
+    # Human selects road for the first settlement.
+    print(f"{player.color} (human) select a road adjacent to your first settlement:")
+    road_loc1 = human_select_road(settlement_loc1, game, player)
+    player.build_road(settlement_loc1, road_loc1)
+    game.occupy_road(settlement_loc1, road_loc1)
+    print(f"{player.color} built 1st road from {(settlement_loc1.x, settlement_loc1.y)} to {(road_loc1.x, road_loc1.y)}")
+
+    draw_grid(centers, vertices)
+    draw_players(players)
+    draw_robber(game)
+    draw_turn_info(0, players[0])
+    draw_player_stats(players)
+    draw_action_bar(screen, active=False)
+    pygame.display.flip()
+
+    # Human selects second settlement.
+    print(f"{player.color} (human) select your second settlement:")
+    settlement_loc2 = human_select_settlement(game)
+    player.build_settlement(settlement_loc2)
+    game.occupy_tile(settlement_loc2)
+    print(f"{player.color} built 2nd settlement at {(settlement_loc2.x, settlement_loc2.y)}")
+
+    draw_grid(centers, vertices)
+    draw_players(players)
+    draw_robber(game)
+    draw_turn_info(0, players[0])
+    draw_player_stats(players)
+    draw_action_bar(screen, active=False)
+    pygame.display.flip()
+
+    # Human selects road for the second settlement.
+    print(f"{player.color} (human) select a road adjacent to your second settlement:")
+    road_loc2 = human_select_road(settlement_loc2, game, player)
+    player.build_road(settlement_loc2, road_loc2)
+    game.occupy_road(settlement_loc2, road_loc2)
+    print(f"{player.color} built 2nd road from {(settlement_loc2.x, settlement_loc2.y)} to {(road_loc2.x, road_loc2.y)}")
+
+    draw_grid(centers, vertices)
+    draw_players(players)
+    draw_robber(game)
+    draw_turn_info(0, players[0])
+    draw_player_stats(players)
+    draw_action_bar(screen, active=False)
+    pygame.display.flip()
+
+    # Reset resources as needed.
+    player.resources = {'wood': 0, 'grain': 0, 'sheep': 0, 'ore': 0, 'brick': 0}
+    # Also, add resources from adjacent tiles to the second settlement.
+    for tile in settlement_loc2.adjacent_tiles:
+        player.add_resource(tile.resource, 1)
+
+
 
 if __name__ == '__main__':
     main()

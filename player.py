@@ -8,6 +8,7 @@ from evaluation import evaluate_settlement_location
 class Player:
     def __init__(self, color):
         self.color = color
+        self.is_human = False
         self.resources = {
             'wood': 0,
             'grain': 0,
@@ -102,10 +103,21 @@ class Player:
 
 
     def find_random_valid_road_location(self, settlement_location, game):
-        ''' returns random road vertex that is the other point to the road, where the first point is the settlement'''
-        #TODO: verify that this logic is right
-        # valid_road_locations = [v for v in adjacent_vertices]
-        return random.choice(settlement_location.adjacent_roads)
+        """
+        Returns a random adjacent vertex to the settlement that results in a valid road,
+        i.e. one that isn’t already occupied.
+        """
+        valid_candidates = [
+            candidate
+            for candidate in settlement_location.adjacent_roads
+            if game.is_valid_road_location(settlement_location, candidate, self)
+        ]
+        if valid_candidates:
+            return random.choice(valid_candidates)
+        else:
+            print(f"No valid road placements available from settlement at ({settlement_location.x}, {settlement_location.y}).")
+            return None
+
 
     def add_resource(self, resource, amount):
         if resource != 'desert':
@@ -204,3 +216,4 @@ class Player:
         self.longest_road_size = max_length
         self.longest_road_path = best_path
         return max_length
+
