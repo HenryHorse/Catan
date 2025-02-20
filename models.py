@@ -59,6 +59,7 @@ class RoadVertex:
         return "Road Vert: (" + str(self.x) + "," + str(self.y) + ")"
 
 
+
 class Settlement:
     def __init__(self, color, location):
         self.color = color

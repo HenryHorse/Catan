@@ -92,9 +92,9 @@ class Game:
         if location in self.occ_tiles:
             return False
         # Allows for adjacent placement
-        # for neighbor in location.adjacent_roads:
-        #     if neighbor in self.occ_tiles:
-        #         return False
+        for neighbor in location.adjacent_roads:
+            if neighbor in self.occ_tiles:
+                return False
         # \/ wrong \/
         # Placing a settlement next to a desert tile is always a bad move
         # for tile in location.adjacent_tiles:
