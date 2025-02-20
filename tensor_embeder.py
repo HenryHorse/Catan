@@ -48,7 +48,7 @@ class BoardNN(nn.Module):
         x = self.fc3(x)
         return x
     
-
+#need to encode actions and need a reward function too but this is the belman eq framwork i think?
 
 def train_rl(agent, target_net, optimizer, memory, gamma=0.99, batch_size=32):
     if len(memory) < batch_size:
