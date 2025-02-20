@@ -1,34 +1,13 @@
-from game import *
-from models import TileVertex
-import pygame
-import argparse
-import sys
-
-from player import Player
-from turn import *
-from board import *
-
 from collections import Counter
 
+import pygame
+import argparse
 
-def initialize_game():
-    centers, vertices = generate_hex_board(CENTER, SIZE)
-    choose_harbors(vertices)
-    initialize_tiles(centers)
-    return centers, vertices
-
-pygame.init()
-pygame.font.init()
-
-# Screen Size Related
-info = pygame.display.Info()
-SCREEN_WIDTH = info.current_w
-SCREEN_HEIGHT = info.current_h
-
-BOARD_AREA_WIDTH = int(SCREEN_WIDTH * 0.75)
-BOARD_AREA_HEIGHT = int(SCREEN_HEIGHT * 0.85)
-STATS_AREA_WIDTH = int(SCREEN_WIDTH * 0.25)
-SCREEN_SIZE = (BOARD_AREA_WIDTH + STATS_AREA_WIDTH, BOARD_AREA_HEIGHT)
+from catan.board import Board
+from catan.player import Player
+from catan.agent.random import RandomAgent
+from catan.game import Game, PlayerAgent
+from catan.util import Point
 
 # Constants
 BACKGROUND_COLOR = (0, 160, 255)
@@ -37,26 +16,12 @@ STATS_BG_COLOR = (230, 230, 230)
 TILE_COLOR = (154, 205, 50)
 ROAD_COLOR = (0, 0, 0)
 
-# Board center and size for hexagons
-CENTER = TileVertex(BOARD_AREA_WIDTH // 2, BOARD_AREA_HEIGHT // 2)
-SIZE = min(BOARD_AREA_WIDTH, BOARD_AREA_HEIGHT) // 10
-
-# Screen setup
-screen = pygame.display.set_mode(SCREEN_SIZE)
-pygame.display.set_caption('Settlers of Catan Board')
-
-
-tile_font = pygame.font.SysFont('Arial', int(SCREEN_HEIGHT * 0.03))
-harbor_font = pygame.font.SysFont('Arial', int(SCREEN_HEIGHT * 0.015))
-stats_title_font = pygame.font.SysFont('Arial', int(SCREEN_HEIGHT * 0.022))
-stats_font = pygame.font.SysFont('Arial', int(SCREEN_HEIGHT * 0.018))
-
-color_map = {
-    'ore': (129, 128, 128),
-    'wood': (34, 139, 34),
-    'brick': (178, 34, 34),
-    'grain': (220, 165, 32),
-    'sheep': (154, 205, 50),
+COLOR_MAP = {
+    'Resource.ORE': (129, 128, 128),
+    'Resource.WOOD': (34, 139, 34),
+    'Resource.BRICK': (178, 34, 34),
+    'Resource.GRAIN': (220, 165, 32),
+    'Resource.SHEEP': (154, 205, 50),
     'desert': (255, 215, 90),
     'red': (255, 0, 0),
     'blue': (0, 0, 255),
@@ -65,89 +30,110 @@ color_map = {
     'robber': (102, 51, 0)
 }
 
-def draw_hexagon(surface, fill_color, outline_color, center, size):
-    vertices = [hex_corner(center, size, i) for i in range(6)]
-    pygame.draw.polygon(surface, fill_color, vertices)
-    pygame.draw.polygon(surface, outline_color, vertices, 2)
+def draw_tile(
+        surface: pygame.Surface,
+        fill_color: tuple[int, int, int],
+        outline_color: tuple[int, int, int],
+        vertices: list[Point]):
+    number_pairs = [point.to_int_tuple() for point in vertices]
+    assert len(number_pairs) == 6
+    pygame.draw.polygon(surface, fill_color, number_pairs)
+    pygame.draw.polygon(surface, outline_color, number_pairs, 2)
 
-def draw_grid(centers, vertices):
+def draw_grid(
+        screen: pygame.Surface,
+        tile_font: pygame.font.Font,
+        harbor_font: pygame.font.Font,
+        board: Board,
+        hexagon_size: float):
+    
     screen.fill(BACKGROUND_COLOR)
 
-    for center in centers:
-        draw_hexagon(screen, color_map[center.resource], ROAD_COLOR, center, SIZE)
-        if (center.number):
-            text_surface = tile_font.render(str(center.number), True, (255, 255, 255))
-            text_rect = text_surface.get_rect(center=(center.x, center.y))
+    for tile in board.tiles.values():
+        center = tile.get_screen_position(hexagon_size)
+        vertices = [rv.get_screen_position(hexagon_size) for rv in tile.adjacent_road_vertices]
+        color = COLOR_MAP[str(tile.resource)] if tile.resource else COLOR_MAP['desert']
+        draw_tile(screen, color, ROAD_COLOR, vertices)
+        if tile.number:
+            text_surface = tile_font.render(str(tile.number), True, (255, 255, 255))
+            text_rect = text_surface.get_rect(center=(center.to_int_tuple()))
             screen.blit(text_surface, text_rect)
     
-    for vertex in vertices:
-        if vertex.harbor:
-            harbor_text = harbor_font.render(vertex.harbor_type, True, (255, 255, 255))
-            text_rect = harbor_text.get_rect(center=(int(vertex.x), int(vertex.y)))
+    for road_vertex in board.road_vertices:
+        pos = road_vertex.get_screen_position(hexagon_size)
+        if road_vertex.harbor is not None:
+            harbor_text = harbor_font.render(str(road_vertex.harbor), True, (255, 255, 255))
+            text_rect = harbor_text.get_rect(center=pos.to_int_tuple())
             pygame.draw.rect(screen, (101, 67, 33), text_rect.inflate(2, 2))
             screen.blit(harbor_text, text_rect)
-            
         else:
-            pygame.draw.circle(screen, ROAD_COLOR, (int(vertex.x), int(vertex.y)), 4)
+            pygame.draw.circle(screen, ROAD_COLOR, pos.to_int_tuple(), 4)
 
-def draw_players(players):
+def draw_players(screen: pygame.Surface, players: list[Player], hexagon_size: float):
     for player in players:
         for settlement in player.settlements:
-            settlement_vertex = settlement.location
-            pygame.draw.circle(screen, color_map[player.color], (int(settlement_vertex.x), int(settlement_vertex.y)), 10)
+            pos = settlement.get_screen_position(hexagon_size)
+            pygame.draw.circle(screen, player.color, pos.to_int_tuple(), 10)
         for city in player.cities:
-            city_vertex = city.location
-            pygame.draw.circle(screen, color_map[player.color], (int(city_vertex.x), int(city_vertex.y)), 15)
+            pos = city.get_screen_position(hexagon_size)
+            pygame.draw.circle(screen, player.color, pos.to_int_tuple(), 15)
         for road in player.roads:
-            rv1 = road.rv1
-            rv2 = road.rv2
-            pygame.draw.line(screen, color_map[player.color], (int(rv1.x), int(rv1.y)), (int(rv2.x), int(rv2.y)), 3)
+            start_pos = road.endpoints[0].get_screen_position(hexagon_size)
+            end_pos = road.endpoints[1].get_screen_position(hexagon_size)
+            pygame.draw.line(screen, player.color, start_pos.to_int_tuple(), end_pos.to_int_tuple(), 3)
             
 
-def draw_robber(game):
-    pygame.draw.circle(screen, color_map['robber'], (game.robber.x, game.robber.y), 12)
+def draw_robber(screen: pygame.Surface, board: Board, hexagon_size: float):
+    if (robber_tile := board.get_robber_tile()) is not None:
+        pos = robber_tile.get_screen_position(hexagon_size)
+        pygame.draw.circle(screen, COLOR_MAP['robber'], pos.to_int_tuple(), 12)
 
 
-def draw_turn_info(turn_number, current_player):
+def draw_turn_info(
+        screen: pygame.Surface,
+        stats_title_font: pygame.font.Font,
+        game: Game):
     """Draw turn number and current player's turn in the top left of the board area."""
-    info_text = f"Turn {turn_number} - {current_player.color.capitalize()}'s Turn"
+    info_text = f"Turn {game.total_turns_elapsed + 1} - Player {game.player_turn_index + 1}'s Turn"
     info_surface = stats_title_font.render(info_text, True, (0, 0, 0))
     screen.blit(info_surface, (10, 10))
 
-
-
-def draw_player_stats(players):
+def draw_player_stats(
+        screen: pygame.Surface,
+        stats_rect: pygame.Rect,
+        stats_title_font: pygame.font.Font,
+        stats_font: pygame.font.Font,
+        players: list[Player]):
     """Draw each player's stats in the right-side stats area with resources on the left
     and dev cards on the right. Also, show Longest Road and Largest Army statuses next to the title."""
     # stats background
-    stats_rect = pygame.Rect(BOARD_AREA_WIDTH, 0, STATS_AREA_WIDTH, BOARD_AREA_HEIGHT)
     pygame.draw.rect(screen, STATS_BG_COLOR, stats_rect)
     
     num_players = len(players)
-    panel_height = BOARD_AREA_HEIGHT // num_players
+    panel_height = stats_rect.height // num_players
     panel_padding = 10
 
     for idx, player in enumerate(players):
         # stat panel position
-        panel_x = BOARD_AREA_WIDTH
+        panel_x = stats_rect.left
         panel_y = idx * panel_height
-        panel_rect = pygame.Rect(panel_x, panel_y, STATS_AREA_WIDTH, panel_height)
+        panel_rect = pygame.Rect(panel_x, panel_y, stats_rect.width, panel_height)
         
         # panel border
-        pygame.draw.rect(screen, color_map[player.color], panel_rect, 2)
+        pygame.draw.rect(screen, player.color, panel_rect, 2)
         
         # Set starting coordinates inside the panel for text
         header_x = panel_x + panel_padding
         header_y = panel_y + panel_padding
         
         # player
-        header_text = f"{player.color.capitalize()} Player"
-        header_surface = stats_title_font.render(header_text, True, color_map[player.color])
+        header_text = f"Player {idx + 1}"
+        header_surface = stats_title_font.render(header_text, True, player.color)
         screen.blit(header_surface, (header_x, header_y))
         
         # longest road and longest army, NOT IMPLEMENTED YET
-        lr_has = getattr(player, 'has_longest_road', False)
-        la_has = getattr(player, 'has_largest_army', False)
+        lr_has = player.has_longest_road
+        la_has = player.has_largest_army
         lr_color = (0, 255, 0) if lr_has else (255, 0, 0)
         la_color = (0, 255, 0) if la_has else (255, 0, 0)
         
@@ -167,7 +153,7 @@ def draw_player_stats(players):
         header_y += vp_surface.get_height() + 10
         
         left_col_x = panel_x + panel_padding
-        right_col_x = panel_x + STATS_AREA_WIDTH // 2 + panel_padding
+        right_col_x = panel_x + stats_rect.width // 2 + panel_padding
         col_y = header_y
         
         # Left Column: Resources
@@ -176,7 +162,7 @@ def draw_player_stats(players):
         col_y += res_header.get_height() + 2
         
         for res, count in player.resources.items():
-            res_text = f"{res.capitalize()}: {count}"
+            res_text = f"{res}: {count}"
             res_surface = stats_font.render(res_text, True, (0, 0, 0))
             screen.blit(res_surface, (left_col_x + 5, col_y))
             col_y += res_surface.get_height() + 2
@@ -200,106 +186,92 @@ def draw_player_stats(players):
             screen.blit(none_surface, (right_col_x + 5, dev_y))
             dev_y += none_surface.get_height() + 2
 
-
-game = None
-players = []
-current_player_index = None
-winner = None
-centers = []
-vertices = []
-
-def start(num_players):
-    global game, players, current_player_index, winner, centers, vertices
-    centers, vertices = initialize_game()
-    print("--------initializing games and players--------")
-    game = Game()
-    game.initialize_game(centers, vertices)
-
-    player_colors = ['red', 'blue', 'white', 'orange']
-    players = []
-
-    for i in range(num_players):  # Only create the requested number of players
-        player = Player(player_colors[i])
-        game.add_player(player)
-        player.initialize_settlements_roads(game)
-        players.append(player)
-
-    winner = None
-    current_player_index = 0
-    draw_players(players)
-
 def parse_arguments():
-    parser = argparse.ArgumentParser(description="Hexagonal board game simulation")
-    parser.add_argument("--disable-trading", action="store_true", help="Disable trading between players")
-    parser.add_argument("--players", type=int, choices=[2,3,4], default=4, help="Number of players (2-4)")
+    parser = argparse.ArgumentParser(description="Settlers of Catan board visualizer")
+    parser.add_argument("--board-size", type=int, default=3, help="Size of the board (default: 3)")
+    # TODO: make this do something?
+    parser.add_argument("--num-players", type=int, default=4, help="Number of players (default: 4)")
     return parser.parse_args()
 
+def create_game(board_size: int) -> Game:
+    board = Board(3)
+
+    player_1 = Player(0, (255, 0, 0))
+    agent_1 = RandomAgent(board, player_1)
+    player_2 = Player(1, (0, 0, 255))
+    agent_2 = RandomAgent(board, player_2)
+    player_3 = Player(2, (255, 255, 255))
+    agent_3 = RandomAgent(board, player_3)
+    player_4 = Player(3, (255, 102, 0))
+    agent_4 = RandomAgent(board, player_4)
+
+    return Game(board, [
+        PlayerAgent(player_1, agent_1),
+        PlayerAgent(player_2, agent_2),
+        PlayerAgent(player_3, agent_3),
+        PlayerAgent(player_4, agent_4)])
+
+def handle_event(event: pygame.event.Event, game: Game):
+    if event.type == pygame.KEYDOWN:
+        if event.key == pygame.K_SPACE and game.winning_player_index is None:
+            print(f'-------- Player {game.player_turn_index + 1} takes turn {game.total_turns_elapsed + 1} --------')
+            game.do_full_turn()
+            if game.winning_player_index is not None:
+                print(f"Player {game.winning_player_index + 1} wins!")
+        elif event.key == pygame.K_x:
+            while game.winning_player_index is None:
+                print(f'-------- Player {game.player_turn_index + 1} takes turn {game.total_turns_elapsed + 1} --------')
+                game.do_full_turn()
+            print(f"Player {game.winning_player_index + 1} wins!")
+
 def main():
-    global game, players, current_player_index, winner, centers, vertices, disable_trading
+    pygame.init()
+    pygame.font.init()
 
-    args = parse_arguments()
-    num_players = args.players
-    disable_trading = args.disable_trading
+    info = pygame.display.Info()
+    SCREEN_WIDTH = info.current_w
+    SCREEN_HEIGHT = info.current_h
 
-    start(num_players)
-    # Main loop
-    turn_num = 1
-    current_player = players[current_player_index]
+    BOARD_AREA_WIDTH = int(SCREEN_WIDTH * 0.75)
+    BOARD_AREA_HEIGHT = int(SCREEN_HEIGHT * 0.85)
+    STATS_AREA_WIDTH = int(SCREEN_WIDTH * 0.25)
+    SCREEN_SIZE = (BOARD_AREA_WIDTH + STATS_AREA_WIDTH, BOARD_AREA_HEIGHT)
+
+    # Board center and size for hexagons
+    HEXAGON_SIZE = min(BOARD_AREA_WIDTH, BOARD_AREA_HEIGHT) // 10
+
+    # Screen setup
+    screen = pygame.display.set_mode(SCREEN_SIZE)
+    pygame.display.set_caption("Settlers of Catan Board")
+
+    tile_font = pygame.font.SysFont('Arial', int(SCREEN_HEIGHT * 0.03))
+    harbor_font = pygame.font.SysFont('Arial', int(SCREEN_HEIGHT * 0.015))
+    stats_title_font = pygame.font.SysFont('Arial', int(SCREEN_HEIGHT * 0.022))
+    stats_font = pygame.font.SysFont('Arial', int(SCREEN_HEIGHT * 0.018))
+
+    game = create_game(3)
+
     running = True
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_r:
-                    turn_num = 1
-                    start(num_players)
-                if event.key == pygame.K_SPACE and winner is None:
-                    current_player = players[current_player_index]
-                    pygame.display.flip()
-                    print(f"--------{current_player.color} takes turn {turn_num} --------")
-                    print(current_player.resources)
-                    if turn(current_player, game, disable_trading):
-                        winner = current_player
-                    else:
-                        current_player_index = (current_player_index + 1) % len(players)
-                        turn_num += 1
-                        print(f"--------{current_player.color} ends turn --------")
-                    if winner is not None:
-                        print(f"The winner is {winner.color}")
-                if event.key == pygame.K_x:
-                    while winner is None:
-                        current_player = players[current_player_index]
-                        print(f"--------{current_player.color} takes turn {turn_num} --------")
-                        print(current_player.resources)
-                        if turn(current_player, game, disable_trading):
-                            winner = current_player
-                        else:
-                            current_player_index = (current_player_index + 1) % len(players)
-                            turn_num += 1
-                            print(f"--------{current_player.color} ends turn --------")
-                        if winner is not None:
-                            print(f"The winner is {winner.color}")
-
-
-        draw_grid(centers, vertices)
-        draw_players(players)
-        draw_robber(game)
-        draw_turn_info(turn_num, players[current_player_index])
-        draw_player_stats(players)
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_r:
+                # TODO: more elegant reset
+                game = create_game(3)
+            else:
+                handle_event(event, game)
+        
+        players: list[Player] = [pa.player for pa in game.player_agents]
+        draw_grid(screen, tile_font, harbor_font, game.board, HEXAGON_SIZE)
+        draw_players(screen, players, HEXAGON_SIZE)
+        draw_robber(screen, game.board, HEXAGON_SIZE)
+        draw_turn_info(screen, stats_title_font, game)
+        draw_player_stats(screen, pygame.Rect(BOARD_AREA_WIDTH, 0, STATS_AREA_WIDTH, SCREEN_HEIGHT), stats_title_font, stats_font, players)
         pygame.display.flip()
-
+    
     pygame.quit()
 
-    
-
-    # while not turn(player_red, game):
-    #     pass
-    # print("Red player wins!")
-
-    # test getting resources
-    # res = key, val = random.choice(list(game.harbors.items()))
-    # player_blue.settlements.append((key))
 
 if __name__ == '__main__':
     main()
