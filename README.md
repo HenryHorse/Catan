@@ -8,7 +8,24 @@ Welcome to our Settlers of Catan AI project repository! This project aims to dev
 In this project, we represent the Settlers of Catan game board as a graph, where nodes represent hexagonal tiles and edges represent connections between them. The bots are trained using a reinforcement learning approach to perform the most optimal moves in any given board situation. Training will consist of rewards based around resource counts, game points, and other various factors.
 
 # How to Run
-Run the catan.py file and you should see the board pop up. You can reset the board to a different initial configuration using the 'r' key, and can run each bot's turn one at a time using the space bar. The terminal displays what the bot did during that move. You can execute the entire game (all turns) at once by hitting the 'x' key. 
+Clone the repository, then run the following to install Pygame (consider making a virtual environment first)
+```shell
+    pip install -r requirements.txt
+```
+
+Then to run the simulation, do
+```shell
+    python3 main.py
+```
+ 
+You should see the board pop up. 
+
+# Controls
+- **space bar**: Plays one turn, displays bot actions in terminal
+- **'x' key**: Executes the entire game (all turns) at once
+- **'r' key**: Resets board to a different initial configuration
+
+
 
 # File Overview
 - **board.py** contains functions that aid in creating and initializing the board data structure
@@ -20,8 +37,6 @@ Run the catan.py file and you should see the board pop up. You can reset the boa
 - **player.py** contains the class representing each player's state
 - **turn.py** contains the function that determines the actions each player can take each turn
 
-# How to Run
-Run the catan.py file and you should see the board pop up. You can reset the board to a different initial configuration using the 'r' key, and can run each bot's turn one at a time using the space bar. The terminal displays what the bot did during that move. You can execute the entire game (all turns) at once by hitting the 'x' key. 
 
 ## Contributors
 

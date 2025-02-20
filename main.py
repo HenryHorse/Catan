@@ -35,13 +35,18 @@ def initialize_game():
     initialize_tiles(centers)
     return centers, vertices
 
+pygame.init()
+pygame.font.init()
 
-# Constants
-BOARD_AREA_WIDTH = 800
-BOARD_AREA_HEIGHT = 800
-STATS_AREA_WIDTH = 220
-ACTION_AREA_HEIGHT = 100
-SCREEN_SIZE = (BOARD_AREA_WIDTH + STATS_AREA_WIDTH, BOARD_AREA_HEIGHT + ACTION_AREA_HEIGHT)
+# Screen Size Related
+info = pygame.display.Info()
+SCREEN_WIDTH = info.current_w
+SCREEN_HEIGHT = info.current_h
+
+BOARD_AREA_WIDTH = int(SCREEN_WIDTH * 0.75)
+BOARD_AREA_HEIGHT = int(SCREEN_HEIGHT * 0.85)
+STATS_AREA_WIDTH = int(SCREEN_WIDTH * 0.25)
+SCREEN_SIZE = (BOARD_AREA_WIDTH + STATS_AREA_WIDTH, BOARD_AREA_HEIGHT)
 
 BACKGROUND_COLOR = (0, 160, 255)
 BOARD_BG_COLOR = (0, 160, 255)
@@ -51,20 +56,17 @@ ROAD_COLOR = (0, 0, 0)
 
 # Board center and size for hexagons
 CENTER = TileVertex(BOARD_AREA_WIDTH // 2, BOARD_AREA_HEIGHT // 2)
-SIZE = 80
+SIZE = min(BOARD_AREA_WIDTH, BOARD_AREA_HEIGHT) // 10
 
 # Screen setup
 screen = pygame.display.set_mode(SCREEN_SIZE)
-pygame.display.set_caption('Hexagonal Grid Visualization')
+pygame.display.set_caption('Settlers of Catan Board')
 
 
-pygame.init()
-pygame.font.init()
-
-tile_font = pygame.font.SysFont('Arial', 24)
-harbor_font = pygame.font.SysFont('Arial', 17)
-stats_title_font = pygame.font.SysFont('Arial', 18)
-stats_font = pygame.font.SysFont('Arial', 14)
+tile_font = pygame.font.SysFont('Arial', int(SCREEN_HEIGHT * 0.03))
+harbor_font = pygame.font.SysFont('Arial', int(SCREEN_HEIGHT * 0.015))
+stats_title_font = pygame.font.SysFont('Arial', int(SCREEN_HEIGHT * 0.022))
+stats_font = pygame.font.SysFont('Arial', int(SCREEN_HEIGHT * 0.018))
 
 color_map = {
     'ore': (129, 128, 128),
@@ -116,7 +118,7 @@ def draw_players(players):
         for road in player.roads:
             rv1 = road.rv1
             rv2 = road.rv2
-            pygame.draw.line(screen, color_map[player.color], (int(rv1.x), int(rv1.y)), (int(rv2.x), int(rv2.y)), 3)   
+            pygame.draw.line(screen, color_map[player.color], (int(rv1.x), int(rv1.y)), (int(rv2.x), int(rv2.y)), 3)
 
 def draw_robber(game):
     pygame.draw.circle(screen, color_map['robber'], (game.robber.x, game.robber.y), 12)
@@ -219,13 +221,13 @@ def draw_action_bar(screen, active=True):
     bar_rect = pygame.Rect(0, SCREEN_SIZE[1] - bar_height, SCREEN_SIZE[0], bar_height)
     bg_color = (200, 200, 200) if active else (150, 150, 150)
     pygame.draw.rect(screen, bg_color, bar_rect)
-    
+
     # Only two buttons for human actions.
     buttons = {
         "Build Road": pygame.Rect(10, SCREEN_SIZE[1] - 90, 150, 40),
         "End Turn": pygame.Rect(650, SCREEN_SIZE[1] - 90, 150, 40)
     }
-    
+
     for label, rect in buttons.items():
         border_color = (0, 0, 0) if active else (100, 100, 100)
         pygame.draw.rect(screen, border_color, rect, 2)
@@ -233,7 +235,7 @@ def draw_action_bar(screen, active=True):
         text_surface = stats_title_font.render(label, True, text_color)
         text_rect = text_surface.get_rect(center=rect.center)
         screen.blit(text_surface, text_rect)
-    
+
     return buttons
 
 game = None
