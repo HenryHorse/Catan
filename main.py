@@ -135,7 +135,11 @@ def draw_grid(centers, vertices, roads, hover_vertex=None, hover_road=None):
 
     for v1, v2 in roads:
         road_thickness = 5 if hover_road and (v1, v2) == hover_road else 2
-        pygame.draw.line(screen, ROAD_COLOR, (int(v1.x), int(v1.y)), (int(v2.x), int(v2.y)), road_thickness)
+        if (v1, v2) == hover_road:
+            pygame.draw.line(screen, ROAD_COLOR, (int(v1.x), int(v1.y)), (int(v2.x), int(v2.y)), road_thickness + 4)
+            pygame.draw.line(screen, (255, 255, 255), (int(v1.x), int(v1.y)), (int(v2.x), int(v2.y)), road_thickness - 2)
+        else:
+            pygame.draw.line(screen, ROAD_COLOR, (int(v1.x), int(v1.y)), (int(v2.x), int(v2.y)), road_thickness)
 
     for vertex in vertices:
         if vertex.harbor:
@@ -144,8 +148,12 @@ def draw_grid(centers, vertices, roads, hover_vertex=None, hover_road=None):
             pygame.draw.rect(screen, (101, 67, 33), text_rect.inflate(2, 2))
             screen.blit(harbor_text, text_rect)
         else:
-            radius = 6 if vertex == hover_vertex else 4
-            pygame.draw.circle(screen, ROAD_COLOR, (int(vertex.x), int(vertex.y)), radius)
+            radius = 8 if vertex == hover_vertex else 4
+            if vertex == hover_vertex:
+                pygame.draw.circle(screen, ROAD_COLOR, (int(vertex.x), int(vertex.y)), radius + 4)
+                pygame.draw.circle(screen, (255, 255, 255), (int(vertex.x), int(vertex.y)), radius)
+            else:
+                pygame.draw.circle(screen, ROAD_COLOR, (int(vertex.x), int(vertex.y)), radius)
 
 def draw_players(players):
     for player in players:
