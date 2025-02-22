@@ -1,5 +1,6 @@
 import random
 from dataclasses import dataclass
+from enum import Enum
 
 from catan.board import Board
 from catan.player import Player
@@ -15,13 +16,19 @@ class PlayerAgent:
     def as_tuple(self) -> tuple[Player, Agent]:
         return (self.player, self.agent)
 
+class GamePhase(Enum):
+    SETUP = 0
+    MAIN = 1
 
 class Game:
     board: Board
     player_agents: list[PlayerAgent]
     player_turn_index: int
     winning_player_index: int | None
-    total_turns_elapsed: int
+    setup_turns_elapsed: int
+    main_turns_elapsed: int
+    game_phase: GamePhase
+    setup_round_count: int
 
     ''' keep track of the state of the game'''
     def __init__(self, board: Board, player_agents: list[PlayerAgent]):
@@ -31,7 +38,10 @@ class Game:
         self.player_agents = player_agents
         self.player_turn_index = 0
         self.winning_player_index = None
-        self.total_turns_elapsed = 0
+        self.setup_turns_elapsed = 0
+        self.main_turns_elapsed = 0
+        self.game_phase = GamePhase.SETUP
+        self.setup_round_count = 2
 
     def perform_dice_roll(self):
         roll = random.randint(1, 6) + random.randint(1, 6)
@@ -40,7 +50,7 @@ class Game:
         if roll == 7:
             # TODO: do that whole resources >= 8 thing
             new_robber_location = self.player_agents[self.player_turn_index].agent.get_robber_placement()
-            self.move_robber(new_robber_location)
+            self.move_robber_and_steal(new_robber_location)
             return
 
         for tile in self.board.tiles.values():
@@ -48,31 +58,44 @@ class Game:
                 for road_vertex in tile.adjacent_road_vertices:
                     if road_vertex.has_settlement and road_vertex.owner is not None:
                         count = 2 if road_vertex.has_city else 1
-                        self.players[road_vertex.owner].give_resource(tile.resource, count)
+                        self.player_agents[road_vertex.owner].player.give_resource(tile.resource, count)
 
     def move_robber_and_steal(self, location: CubeCoordinates):
         print(f"{self.player_turn_index} moves robber to {location}")
         for tile in self.board.tiles.values():
             tile.has_robber = tile.cube_coords == location
             if tile.has_robber:
-                for road_vertex in tile.adjacent_road_vertices:
-                    if road_vertex.has_settlement and road_vertex.owner is not None:
-                        count = 2 if road_vertex.has_city else 1
-                        self.players[road_vertex.owner].give_resource(tile.resource, count)
+                # TODO: implement robbing
+                pass
 
-    def perform_current_player_action(self):
+    def get_and_perform_player_action(self):
         # tuple unpacking causes type issues :/
         player, agent = self.player_agents[self.player_turn_index].as_tuple()
-        player.perform_action(agent.get_action(), self.board)
+        all_possible_actions = player.get_all_possible_actions(self.board, self.game_phase == GamePhase.SETUP)
+        action = agent.get_action(all_possible_actions)
+        if action is not None:
+            player.perform_action(action, self.board)
+    
+    def advance_player_turn(self):
+        self.player_turn_index = (self.player_turn_index + 1) % len(self.player_agents)
     
     def do_full_turn(self):
         if self.winning_player_index is not None:
             return
-        self.perform_dice_roll()
-        self.perform_current_player_action()
-        self.total_turns_elapsed += 1
-        for player_agent in self.player_agents:
-            if player_agent.player.victory_points >= 10:
-                self.winning_player_index = player_agent.player.index
+        if self.game_phase == GamePhase.SETUP:
+            if self.setup_turns_elapsed >= len(self.player_agents) * 2 * self.setup_round_count:
+                self.game_phase = GamePhase.MAIN
                 return
-        self.player_turn_index = (self.player_turn_index + 1) % len(self.player_agents)
+            self.get_and_perform_player_action()
+            if self.setup_turns_elapsed % 2 == 1:
+                self.advance_player_turn()
+            self.setup_turns_elapsed += 1
+        else:
+            self.perform_dice_roll()
+            self.get_and_perform_player_action()
+            self.main_turns_elapsed += 1
+            for player_agent in self.player_agents:
+                if player_agent.player.victory_points >= 10:
+                    self.winning_player_index = player_agent.player.index
+                    return
+            self.advance_player_turn()

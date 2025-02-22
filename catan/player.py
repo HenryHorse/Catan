@@ -183,8 +183,8 @@ class Player:
                 if connected_road.owner == self.index:
                     return True
     
-    def get_all_possible_actions(self, board: Board) -> list[tuple[str, tuple]]:
-        if len(self.settlements) < 2 and len(self.roads) < 2:
+    def get_all_possible_actions(self, board: Board, is_setup: bool) -> list[tuple[str, tuple]]:
+        if is_setup:
             return self._get_all_possible_actions_placing(board)
         return self._get_all_possible_actions_normal(board)
     
@@ -193,11 +193,11 @@ class Player:
         if len(self.settlements) <= len(self.roads):
             for road_vertex in board.road_vertices:
                 if self.is_valid_settlement_location(road_vertex, needs_road=False):
-                    actions.append(('build_settlement', (road_vertex, False)))
+                    actions.append(BuildSettlementAction(road_vertex, False))
         else:
             for road in board.roads:
                 if self.is_valid_road_location(road):
-                    actions.append(('build_road', (road,)))
+                    actions.append(BuildRoadAction(road, False))
         return actions
 
     def _get_all_possible_actions_normal(self, board: Board) -> list[Action]:
@@ -212,7 +212,8 @@ class Player:
                 actions.append(BuildRoadAction(road))
         return actions
     
-    def perform_action(self, action: Action):
+    def perform_action(self, action: Action, board: Board):
+        print(f'Player {self.index + 1} performs action {action}')
         if isinstance(action, BuildSettlementAction):
             self.build_settlement(action.road_vertex, action.pay_for)
         elif isinstance(action, BuildCityAction):

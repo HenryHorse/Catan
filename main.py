@@ -36,7 +36,6 @@ def draw_tile(
         outline_color: tuple[int, int, int],
         vertices: list[Point]):
     number_pairs = [point.to_int_tuple() for point in vertices]
-    assert len(number_pairs) == 6
     pygame.draw.polygon(surface, fill_color, number_pairs)
     pygame.draw.polygon(surface, outline_color, number_pairs, 2)
 
@@ -45,13 +44,14 @@ def draw_grid(
         tile_font: pygame.font.Font,
         harbor_font: pygame.font.Font,
         board: Board,
-        hexagon_size: float):
+        hexagon_size: float,
+        displacement: Point = Point(0, 0)):
     
     screen.fill(BACKGROUND_COLOR)
 
     for tile in board.tiles.values():
-        center = tile.get_screen_position(hexagon_size)
-        vertices = [rv.get_screen_position(hexagon_size) for rv in tile.adjacent_road_vertices]
+        center = tile.get_screen_position(hexagon_size) + displacement
+        vertices = [rv.get_screen_position(hexagon_size) + displacement for rv in tile.adjacent_road_vertices]
         color = COLOR_MAP[str(tile.resource)] if tile.resource else COLOR_MAP['desert']
         draw_tile(screen, color, ROAD_COLOR, vertices)
         if tile.number:
@@ -60,7 +60,7 @@ def draw_grid(
             screen.blit(text_surface, text_rect)
     
     for road_vertex in board.road_vertices:
-        pos = road_vertex.get_screen_position(hexagon_size)
+        pos = road_vertex.get_screen_position(hexagon_size) + displacement
         if road_vertex.harbor is not None:
             harbor_text = harbor_font.render(str(road_vertex.harbor), True, (255, 255, 255))
             text_rect = harbor_text.get_rect(center=pos.to_int_tuple())
@@ -69,23 +69,31 @@ def draw_grid(
         else:
             pygame.draw.circle(screen, ROAD_COLOR, pos.to_int_tuple(), 4)
 
-def draw_players(screen: pygame.Surface, players: list[Player], hexagon_size: float):
+def draw_players(
+        screen: pygame.Surface,
+        players: list[Player],
+        hexagon_size: float,
+        displacement: Point = Point(0, 0)):
     for player in players:
         for settlement in player.settlements:
-            pos = settlement.get_screen_position(hexagon_size)
+            pos = settlement.get_screen_position(hexagon_size) + displacement
             pygame.draw.circle(screen, player.color, pos.to_int_tuple(), 10)
         for city in player.cities:
-            pos = city.get_screen_position(hexagon_size)
+            pos = city.get_screen_position(hexagon_size) + displacement
             pygame.draw.circle(screen, player.color, pos.to_int_tuple(), 15)
         for road in player.roads:
-            start_pos = road.endpoints[0].get_screen_position(hexagon_size)
-            end_pos = road.endpoints[1].get_screen_position(hexagon_size)
+            start_pos = road.endpoints[0].get_screen_position(hexagon_size) + displacement
+            end_pos = road.endpoints[1].get_screen_position(hexagon_size) + displacement
             pygame.draw.line(screen, player.color, start_pos.to_int_tuple(), end_pos.to_int_tuple(), 3)
             
 
-def draw_robber(screen: pygame.Surface, board: Board, hexagon_size: float):
+def draw_robber(
+        screen: pygame.Surface,
+        board: Board,
+        hexagon_size: float,
+        displacement: Point = Point(0, 0)):
     if (robber_tile := board.get_robber_tile()) is not None:
-        pos = robber_tile.get_screen_position(hexagon_size)
+        pos = robber_tile.get_screen_position(hexagon_size) + displacement
         pygame.draw.circle(screen, COLOR_MAP['robber'], pos.to_int_tuple(), 12)
 
 
@@ -94,7 +102,7 @@ def draw_turn_info(
         stats_title_font: pygame.font.Font,
         game: Game):
     """Draw turn number and current player's turn in the top left of the board area."""
-    info_text = f"Turn {game.total_turns_elapsed + 1} - Player {game.player_turn_index + 1}'s Turn"
+    info_text = f"Turn {game.main_turns_elapsed + 1} - Player {game.player_turn_index + 1}'s Turn"
     info_surface = stats_title_font.render(info_text, True, (0, 0, 0))
     screen.blit(info_surface, (10, 10))
 
@@ -214,13 +222,13 @@ def create_game(board_size: int) -> Game:
 def handle_event(event: pygame.event.Event, game: Game):
     if event.type == pygame.KEYDOWN:
         if event.key == pygame.K_SPACE and game.winning_player_index is None:
-            print(f'-------- Player {game.player_turn_index + 1} takes turn {game.total_turns_elapsed + 1} --------')
+            print(f'-------- Player {game.player_turn_index + 1} takes turn {game.main_turns_elapsed + 1} --------')
             game.do_full_turn()
             if game.winning_player_index is not None:
                 print(f"Player {game.winning_player_index + 1} wins!")
         elif event.key == pygame.K_x:
             while game.winning_player_index is None:
-                print(f'-------- Player {game.player_turn_index + 1} takes turn {game.total_turns_elapsed + 1} --------')
+                print(f'-------- Player {game.player_turn_index + 1} takes turn {game.main_turns_elapsed + 1} --------')
                 game.do_full_turn()
             print(f"Player {game.winning_player_index + 1} wins!")
 
@@ -263,9 +271,10 @@ def main():
                 handle_event(event, game)
         
         players: list[Player] = [pa.player for pa in game.player_agents]
-        draw_grid(screen, tile_font, harbor_font, game.board, HEXAGON_SIZE)
-        draw_players(screen, players, HEXAGON_SIZE)
-        draw_robber(screen, game.board, HEXAGON_SIZE)
+        grid_displacement = Point(BOARD_AREA_WIDTH // 2, BOARD_AREA_HEIGHT // 2)
+        draw_grid(screen, tile_font, harbor_font, game.board, HEXAGON_SIZE, grid_displacement)
+        draw_players(screen, players, HEXAGON_SIZE, grid_displacement)
+        draw_robber(screen, game.board, HEXAGON_SIZE, grid_displacement)
         draw_turn_info(screen, stats_title_font, game)
         draw_player_stats(screen, pygame.Rect(BOARD_AREA_WIDTH, 0, STATS_AREA_WIDTH, SCREEN_HEIGHT), stats_title_font, stats_font, players)
         pygame.display.flip()

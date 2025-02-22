@@ -1,5 +1,5 @@
 from catan.board import Board, Resource
-from catan.player import Player
+from catan.player import Player, Action
 from catan.util import CubeCoordinates
 
 class Agent:
@@ -11,7 +11,7 @@ class Agent:
         self.player = player
 
     # returns index of chosen action out of all possible player actions
-    def get_action(self) -> int:
+    def get_action(self, possible_actions: list[Action]) -> Action | None:
         raise NotImplementedError
 
     def get_most_needed_resources(self) -> tuple[Resource, Resource]:
