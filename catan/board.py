@@ -105,8 +105,12 @@ class RoadVertex:
         self.adjacent_roads = adjacent_roads or []
 
     def __eq__(self, other: object) -> bool:
+        # maybe the worst eq function of all time
         if not isinstance(other, RoadVertex):
             return False
+        for vertex, other_vertex in zip(self.adjacent_road_vertices, other.adjacent_road_vertices):
+            if vertex.adjacent_tiles != other_vertex.adjacent_tiles:
+                return False
         return self.adjacent_tiles == other.adjacent_tiles
 
     def __repr__(self) -> str:
