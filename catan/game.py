@@ -68,13 +68,13 @@ class Game:
                 # TODO: implement robbing
                 pass
 
+    # returns whether the player has ended their turn
     def get_and_perform_player_action(self):
         # tuple unpacking causes type issues :/
         player, agent = self.player_agents[self.player_turn_index].as_tuple()
         all_possible_actions = player.get_all_possible_actions(self.board, self.game_phase == GamePhase.SETUP)
         action = agent.get_action(all_possible_actions)
-        if action is not None:
-            player.perform_action(action, self.board)
+        return player.perform_action(action, self.board)
     
     def advance_player_turn(self):
         self.player_turn_index = (self.player_turn_index + 1) % len(self.player_agents)
@@ -92,7 +92,9 @@ class Game:
             self.setup_turns_elapsed += 1
         else:
             self.perform_dice_roll()
-            self.get_and_perform_player_action()
+            # keep performing actions until the player ends their turn
+            while not self.get_and_perform_player_action():
+                pass
             self.main_turns_elapsed += 1
             for player_agent in self.player_agents:
                 if player_agent.player.victory_points >= 10:

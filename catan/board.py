@@ -26,6 +26,18 @@ class Harbor(enum.Enum):
     GRAIN = 4
     SHEEP = 5
 
+HARBOR_LOCATIONS = [
+    (CubeCoordinates(1, -2, 1), 0, 1),
+    (CubeCoordinates(2, -1, -1), 0, 1),
+    (CubeCoordinates(2, 0, -2), 1, 2),
+    (CubeCoordinates(1, 1, -2), 2, 3),
+    (CubeCoordinates(-1, 2, -1), 2, 3),
+    (CubeCoordinates(-2, 2, 0), 3, 4),
+    (CubeCoordinates(-2, 1, 1), 4, 5),
+    (CubeCoordinates(-1, -1, 2), 4, 5),
+    (CubeCoordinates(0, -2, 2), 5, 0),
+]
+
 class Tile:
     cube_coords: CubeCoordinates
     resource: Resource | None
@@ -163,6 +175,8 @@ class Board:
         for tile in self.tiles.values():
             self._create_roads_on_tile(tile)
         
+        self.set_harbors()
+        
         # verify
         for tile in self.tiles.values():
             assert len(tile.adjacent_road_vertices) == 6
@@ -226,7 +240,14 @@ class Board:
                 shared_tile.adjacent_roads[(i + 3) % 6] = new_road
     
     def set_harbors(self):
-        pass
+        remaining_harbor_types = list(Harbor) + [Harbor.THREE_TO_ONE] * (len(HARBOR_LOCATIONS) - len(Harbor))
+        random.shuffle(remaining_harbor_types)
+
+        for tile_coords, vert_1, vert_2 in HARBOR_LOCATIONS:
+            harbor = remaining_harbor_types.pop()
+            tile = self.tiles[tile_coords]
+            tile.adjacent_road_vertices[vert_1].harbor = harbor
+            tile.adjacent_road_vertices[vert_2].harbor = harbor
 
     def initialize_tile_info(self):
         resources_remaining: dict[Resource, int] = {}

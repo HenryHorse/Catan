@@ -11,7 +11,7 @@ class Agent:
         self.player = player
 
     # returns index of chosen action out of all possible player actions
-    def get_action(self, possible_actions: list[Action]) -> Action | None:
+    def get_action(self, possible_actions: list[Action]) -> Action:
         raise NotImplementedError
 
     def get_most_needed_resources(self) -> tuple[Resource, Resource]:

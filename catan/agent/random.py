@@ -9,9 +9,7 @@ class RandomAgent(Agent):
     def __init__(self, board: Board, player: Player):
         super().__init__(board, player)
 
-    def get_action(self, possible_actions: list[Action]) -> Action | None:
-        if len(possible_actions) == 0:
-            return None
+    def get_action(self, possible_actions: list[Action]) -> Action:
         return random.choice(possible_actions)
 
     def get_most_needed_resources(self) -> tuple[Resource, Resource]:

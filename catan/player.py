@@ -2,10 +2,14 @@ from collections import defaultdict, Counter
 from dataclasses import dataclass
 from typing import Union
 
-from catan.board import Board, Resource, RoadVertex, Road
+from catan.board import Board, Resource, RoadVertex, Road, Harbor
 from catan.error import CatanException
 from catan.constants import *
 
+
+@dataclass
+class EndTurnAction:
+    pass
 
 @dataclass
 class BuildSettlementAction:
@@ -22,7 +26,15 @@ class BuildRoadAction:
     road: Road
     pay_for: bool = True
 
-Action = Union[BuildSettlementAction, BuildCityAction, BuildRoadAction]
+@dataclass
+class TradeAction:
+    giving: list[Resource]
+    receiving: list[Resource]
+
+    def simple_trade_options(giving: Resource, count: int) -> list['TradeAction']:
+        return [TradeAction([giving] * count, [resource]) for resource in Resource if resource != giving]
+
+Action = Union[EndTurnAction, BuildSettlementAction, BuildCityAction, BuildRoadAction, TradeAction]
 
 
 class Player:
@@ -179,17 +191,46 @@ class Player:
         for road_vertex in road.endpoints:
             if road_vertex.owner == self.index:
                 return True
-            for connected_road in road_vertex.adjacent_roads:
-                if connected_road.owner == self.index:
-                    return True
+            elif road_vertex.owner == None:
+                for connected_road in road_vertex.adjacent_roads:
+                    if connected_road.owner == self.index:
+                        return True
     
-    def get_all_possible_actions(self, board: Board, is_setup: bool) -> list[tuple[str, tuple]]:
+    def has_harbor(self, harbor_or_resource: Harbor | Resource) -> bool:
+        if isinstance(harbor_or_resource, Harbor):
+            return any(settlement.harbor == harbor_or_resource for settlement in self.settlements)
+        resource = harbor_or_resource
+        if resource == Resource.WOOD:
+            return self.has_harbor(Harbor.WOOD)
+        elif resource == Resource.GRAIN:
+            return self.has_harbor(Harbor.GRAIN)
+        elif resource == Resource.SHEEP:
+            return self.has_harbor(Harbor.SHEEP)
+        elif resource == Resource.ORE:
+            return self.has_harbor(Harbor.ORE)
+        elif resource == Resource.BRICK:
+            return self.has_harbor(Harbor.BRICK)
+        return False
+    
+    def can_trade_4_to_1(self, with_resource: Resource) -> bool:
+        return self.can_afford([with_resource] * 4)
+    
+    def can_trade_3_to_1(self, with_resource: Resource | None = None) -> bool:
+        has_harbor = self.has_harbor(Harbor.THREE_TO_ONE)
+        if has_harbor and with_resource is not None:
+            return self.can_afford([with_resource] * 3)
+        return has_harbor
+    
+    def can_trade_2_to_1(self, resource: Resource, check_count: bool = False) -> bool:
+        return self.has_harbor(resource) and (not check_count or self.resources[resource] >= 2)
+    
+    def get_all_possible_actions(self, board: Board, is_setup: bool) -> list[Action]:
         if is_setup:
             return self._get_all_possible_actions_placing(board)
         return self._get_all_possible_actions_normal(board)
     
-    def _get_all_possible_actions_placing(self, board: Board) -> list[tuple[str, tuple]]:
-        actions = []
+    def _get_all_possible_actions_placing(self, board: Board) -> list[Action]:
+        actions: list[Action] = []
         if len(self.settlements) <= len(self.roads):
             for road_vertex in board.road_vertices:
                 if self.is_valid_settlement_location(road_vertex, needs_road=False):
@@ -201,24 +242,45 @@ class Player:
         return actions
 
     def _get_all_possible_actions_normal(self, board: Board) -> list[Action]:
-        actions: list[Action] = []
-        for road_vertex in board.road_vertices:
-            if self.is_valid_settlement_location(road_vertex) and self.can_afford(SETTLEMENT_COST):
-                actions.append(BuildSettlementAction(road_vertex))
-            if self.is_valid_city_location(road_vertex) and self.can_afford(CITY_COST):
-                actions.append(BuildCityAction(road_vertex))
-        for road in board.roads:
-            if self.is_valid_road_location(road) and self.can_afford(ROAD_COST):
-                actions.append(BuildRoadAction(road))
+        actions: list[Action] = [EndTurnAction()]
+        if self.available_settlements > 0:
+            for road_vertex in board.road_vertices:
+                if self.is_valid_settlement_location(road_vertex) and self.can_afford(SETTLEMENT_COST):
+                    actions.append(BuildSettlementAction(road_vertex))
+        if self.available_cities > 0:
+            for road_vertex in self.settlements:
+                if self.is_valid_city_location(road_vertex) and self.can_afford(CITY_COST):
+                    actions.append(BuildCityAction(road_vertex))
+        if self.available_roads > 0:
+            for road in board.roads:
+                if self.is_valid_road_location(road) and self.can_afford(ROAD_COST):
+                    actions.append(BuildRoadAction(road))
+        for resource in Resource:
+            if self.can_trade_2_to_1(resource, True):
+                actions.extend(TradeAction.simple_trade_options(resource, 2))
+            elif self.can_trade_3_to_1(resource):
+                actions.extend(TradeAction.simple_trade_options(resource, 3))
+            elif self.can_trade_4_to_1(resource):
+                actions.extend(TradeAction.simple_trade_options(resource, 4))
         return actions
     
-    def perform_action(self, action: Action, board: Board):
+    # returns whether the player has ended their turn
+    def perform_action(self, action: Action, board: Board) -> bool:
         print(f'Player {self.index + 1} performs action {action}')
-        if isinstance(action, BuildSettlementAction):
+        if isinstance(action, EndTurnAction):
+            return True
+        elif isinstance(action, BuildSettlementAction):
             self.build_settlement(action.road_vertex, action.pay_for)
         elif isinstance(action, BuildCityAction):
             self.build_city(action.road_vertex, action.pay_for)
         elif isinstance(action, BuildRoadAction):
             self.build_road(action.road, action.pay_for)
+        elif isinstance(action, TradeAction):
+            if not self.can_afford(action.giving):
+                raise CatanException('Cannot afford trade')
+            self.pay_for(action.giving)
+            for resource in action.receiving:
+                self.give_resource(resource)
         else:
             raise CatanException('Invalid action')
+        return False
