@@ -12,8 +12,8 @@ class RandomAgent(Agent):
     def get_action(self, possible_actions: list[Action]) -> Action:
         return random.choice(possible_actions)
 
-    def get_most_needed_resources(self) -> tuple[Resource, Resource]:
-        return Resource.BRICK, Resource.WOOD
+    def get_most_needed_resource(self) -> Resource:
+        return random.choice(list(Resource))
     
     def get_robber_placement(self):
         return CubeCoordinates(0, 0, 0)

@@ -38,6 +38,32 @@ HARBOR_LOCATIONS = [
     (CubeCoordinates(0, -2, 2), 5, 0),
 ]
 
+
+class DevelopmentCard(enum.Enum):
+    KNIGHT = 0
+    ROAD_BUILDING = 1
+    YEAR_OF_PLENTY = 2
+    MONOPOLY = 3
+    VICTORY_POINT = 4
+
+class DevelopmentCardDeck:
+    cards: list[DevelopmentCard]
+
+    def __init__(self):
+        self.cards = [DevelopmentCard.KNIGHT] * 14 + \
+            [DevelopmentCard.ROAD_BUILDING] * 2 + \
+            [DevelopmentCard.YEAR_OF_PLENTY] * 2 + \
+            [DevelopmentCard.MONOPOLY] * 2 + \
+            [DevelopmentCard.VICTORY_POINT] * 5
+        random.shuffle(self.cards)
+
+    def draw(self) -> DevelopmentCard:
+        return self.cards.pop()
+    
+    def remaining_cards(self) -> int:
+        return len(self.cards)
+
+
 class Tile:
     cube_coords: CubeCoordinates
     resource: Resource | None
@@ -151,6 +177,7 @@ class Board:
     tiles: dict[CubeCoordinates, Tile]
     road_vertices: list[RoadVertex]
     roads: list[Road]
+    development_card_deck: DevelopmentCardDeck
 
     def __init__(self, size: int):
         assert size > 0
@@ -159,6 +186,7 @@ class Board:
         self.tiles = {self.center_tile.cube_coords: self.center_tile}
         self.road_vertices = []
         self.roads = []
+        self.development_card_deck = DevelopmentCardDeck()
 
         # create tiles
         for i in range(1, size):

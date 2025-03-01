@@ -1,10 +1,13 @@
-from collections import defaultdict, Counter
+from __future__ import annotations
+from collections import Counter
 from dataclasses import dataclass
-from typing import Union
+from typing import Union, TYPE_CHECKING
 
-from catan.board import Board, Resource, RoadVertex, Road, Harbor
+from catan.board import Board, Resource, RoadVertex, Road, Harbor, DevelopmentCard
 from catan.error import CatanException
 from catan.constants import *
+if TYPE_CHECKING:
+    from catan.game import Game
 
 
 @dataclass
@@ -27,6 +30,14 @@ class BuildRoadAction:
     pay_for: bool = True
 
 @dataclass
+class BuyDevelopmentCardAction:
+    pass
+
+@dataclass
+class UseDevelopmentCardAction:
+    card: DevelopmentCard
+
+@dataclass
 class TradeAction:
     giving: list[Resource]
     receiving: list[Resource]
@@ -34,14 +45,31 @@ class TradeAction:
     def simple_trade_options(giving: Resource, count: int) -> list['TradeAction']:
         return [TradeAction([giving] * count, [resource]) for resource in Resource if resource != giving]
 
-Action = Union[EndTurnAction, BuildSettlementAction, BuildCityAction, BuildRoadAction, TradeAction]
+Action = Union[
+    EndTurnAction,
+    BuildSettlementAction,
+    BuildCityAction,
+    BuildRoadAction,
+    BuyDevelopmentCardAction,
+    UseDevelopmentCardAction,
+    TradeAction
+]
 
 
 class Player:
     index: int
     color: tuple[int, int, int]
+
     resources: dict[Resource, int]
-    dev_cards: list
+    unplayed_dev_cards: list[DevelopmentCard]
+    played_dev_cards: list[DevelopmentCard]
+
+    # for the road building development card
+    free_roads_remaining: int
+    # for the year of plenty development card
+    free_resources_remaining: int
+    # for the monopoly development card
+    just_played_monopoly: bool
 
     available_settlements: int
     settlements: list[RoadVertex]
@@ -49,7 +77,7 @@ class Player:
     cities: list[RoadVertex]
     available_roads: int
     roads: list[Road]
-
+    
     victory_points: int
     longest_road_size: int
     has_longest_road: bool
@@ -59,8 +87,14 @@ class Player:
     def __init__(self, index: int, color: tuple[int, int, int]):
         self.index = index
         self.color = color
+        
         self.resources = {resource: 0 for resource in Resource}
-        self.dev_cards = []
+        self.unplayed_dev_cards = []
+        self.played_dev_cards = []
+        
+        self.free_roads_remaining = 0
+        self.free_resources_remaining = 0
+        self.just_played_monopoly = False
 
         self.available_settlements = 5
         self.settlements = []
@@ -138,6 +172,17 @@ class Player:
         self.available_roads -= 1
         if pay_for:
             self.pay_for(ROAD_COST)
+    
+    def buy_development_card(self, board: Board):
+        if not self.can_afford(DEVELOPMENT_CARD_COST):
+            raise CatanException('Cannot afford development card')
+        
+        card = board.development_card_deck.draw()
+        self.unplayed_dev_cards.append(card)
+        self.pay_for(DEVELOPMENT_CARD_COST)
+
+        if card == DevelopmentCard.VICTORY_POINT:
+            self.victory_points += 1
 
     def find_longest_road_size(self) -> int:
         # TODO: implement well
@@ -225,6 +270,9 @@ class Player:
         return self.has_harbor(resource) and (not check_count or self.resources[resource] >= 2)
     
     def get_all_possible_actions(self, board: Board, is_setup: bool) -> list[Action]:
+        if self.free_roads_remaining > 0:
+            self.free_roads_remaining -= 1
+            return [BuildRoadAction(road, False) for road in board.roads if self.is_valid_road_location(road)]
         if is_setup:
             return self._get_all_possible_actions_placing(board)
         return self._get_all_possible_actions_normal(board)
@@ -255,6 +303,12 @@ class Player:
             for road in board.roads:
                 if self.is_valid_road_location(road) and self.can_afford(ROAD_COST):
                     actions.append(BuildRoadAction(road))
+        if board.development_card_deck.remaining_cards() > 0 and self.can_afford(DEVELOPMENT_CARD_COST):
+            actions.append(BuyDevelopmentCardAction())
+        for card in list(set(self.unplayed_dev_cards)):
+            # victory point cards don't get played!
+            if card != DevelopmentCard.VICTORY_POINT:
+                actions.append(UseDevelopmentCardAction(card))
         for resource in Resource:
             if self.can_trade_2_to_1(resource, True):
                 actions.extend(TradeAction.simple_trade_options(resource, 2))
@@ -265,7 +319,7 @@ class Player:
         return actions
     
     # returns whether the player has ended their turn
-    def perform_action(self, action: Action, board: Board) -> bool:
+    def perform_action(self, action: Action, board: Board, game: Game) -> bool:
         print(f'Player {self.index + 1} performs action {action}')
         if isinstance(action, EndTurnAction):
             return True
@@ -275,6 +329,19 @@ class Player:
             self.build_city(action.road_vertex, action.pay_for)
         elif isinstance(action, BuildRoadAction):
             self.build_road(action.road, action.pay_for)
+        elif isinstance(action, BuyDevelopmentCardAction):
+            self.buy_development_card(board)
+        elif isinstance(action, UseDevelopmentCardAction):
+            self.unplayed_dev_cards.remove(action.card)
+            self.played_dev_cards.append(action.card)
+            if action.card == DevelopmentCard.KNIGHT:
+                self.army_size += 1
+            elif action.card == DevelopmentCard.ROAD_BUILDING:
+                self.free_roads_remaining += min(2, self.available_roads)
+            elif action.card == DevelopmentCard.YEAR_OF_PLENTY:
+                game.select_and_give_resource(self.index)
+            elif action.card == DevelopmentCard.MONOPOLY:
+                game.select_and_steal_all_resources(self.index)
         elif isinstance(action, TradeAction):
             if not self.can_afford(action.giving):
                 raise CatanException('Cannot afford trade')

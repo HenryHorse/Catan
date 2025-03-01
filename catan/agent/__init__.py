@@ -14,7 +14,7 @@ class Agent:
     def get_action(self, possible_actions: list[Action]) -> Action:
         raise NotImplementedError
 
-    def get_most_needed_resources(self) -> tuple[Resource, Resource]:
+    def get_most_needed_resource(self) -> Resource:
         raise NotImplementedError
     
     def get_robber_placement(self) -> CubeCoordinates:

@@ -20,6 +20,7 @@ class GamePhase(Enum):
     SETUP = 0
     MAIN = 1
 
+
 class Game:
     board: Board
     player_agents: list[PlayerAgent]
@@ -67,6 +68,21 @@ class Game:
             if tile.has_robber:
                 # TODO: implement robbing
                 pass
+    
+    def select_and_give_resource(self, player_index: int):
+        player, agent = self.player_agents[player_index].as_tuple()
+        resource = agent.get_most_needed_resource()
+        player.give_resource(resource, 1)
+
+    def select_and_steal_all_resources(self, player_index: int):
+        player, agent = self.player_agents[player_index].as_tuple()
+        resource = agent.get_most_needed_resource()
+        count = 0
+        for player_agent in self.player_agents:
+            if player_agent.player.index != player_index:
+                count += player_agent.player.resources[resource]
+                player_agent.player.resources[resource] = 0
+        player.give_resource(resource, count)
 
     # returns whether the player has ended their turn
     def get_and_perform_player_action(self):
@@ -74,7 +90,7 @@ class Game:
         player, agent = self.player_agents[self.player_turn_index].as_tuple()
         all_possible_actions = player.get_all_possible_actions(self.board, self.game_phase == GamePhase.SETUP)
         action = agent.get_action(all_possible_actions)
-        return player.perform_action(action, self.board)
+        return player.perform_action(action, self.board, self)
     
     def advance_player_turn(self):
         self.player_turn_index = (self.player_turn_index + 1) % len(self.player_agents)

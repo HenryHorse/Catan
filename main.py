@@ -182,7 +182,7 @@ def draw_player_stats(
         dev_y += dev_header.get_height() + 2
         
         # Count development cards for the player
-        dev_counts = Counter(card.card_type for card in player.dev_cards)
+        dev_counts = Counter(str(card) for card in player.unplayed_dev_cards)
         if dev_counts:
             for card_type, count in dev_counts.items():
                 card_text = f"{card_type.capitalize()}: {count}"
