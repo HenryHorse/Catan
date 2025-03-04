@@ -1,7 +1,7 @@
-from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass
 from typing import Union, TYPE_CHECKING
+import random
 
 from catan.board import Board, Resource, RoadVertex, Road, Harbor, DevelopmentCard
 from catan.error import CatanException
@@ -66,10 +66,6 @@ class Player:
 
     # for the road building development card
     free_roads_remaining: int
-    # for the year of plenty development card
-    free_resources_remaining: int
-    # for the monopoly development card
-    just_played_monopoly: bool
 
     available_settlements: int
     settlements: list[RoadVertex]
@@ -109,6 +105,12 @@ class Player:
         self.army_size = 0
         self.has_largest_army = False
     
+    def get_resources_array(self) -> list[Resource]:
+        return [resource for resource, count in self.resources.items() for _ in range(count)]
+    
+    def get_resource_count(self) -> int:
+        return sum(self.resources.values())
+    
     def can_afford(self, cost: list[Resource]) -> bool:
         cost_dict = Counter(cost)
         return all(self.resources[resource] >= cost_dict[resource] for resource in cost_dict)
@@ -120,6 +122,15 @@ class Player:
     
     def give_resource(self, resource: Resource, count: int = 1):
         self.resources[resource] += count
+    
+    def take_random_resources(self, count: int) -> list[Resource]:
+        array = self.get_resources_array()
+        if len(array) < count:
+            raise CatanException('Not enough resources')
+        resources = random.sample(array, count)
+        for resource in resources:
+            self.resources[resource] -= 1
+        return resources
     
     def build_settlement(self, road_vertex: RoadVertex, pay_for: bool = True):
         if road_vertex.has_settlement:
@@ -276,7 +287,7 @@ class Player:
         if is_setup:
             return self._get_all_possible_actions_placing(board)
         return self._get_all_possible_actions_normal(board)
-    
+
     def _get_all_possible_actions_placing(self, board: Board) -> list[Action]:
         actions: list[Action] = []
         if len(self.settlements) <= len(self.roads):
@@ -319,7 +330,7 @@ class Player:
         return actions
     
     # returns whether the player has ended their turn
-    def perform_action(self, action: Action, board: Board, game: Game) -> bool:
+    def perform_action(self, action: Action, board: Board, game: 'Game') -> bool:
         print(f'Player {self.index + 1} performs action {action}')
         if isinstance(action, EndTurnAction):
             return True
@@ -335,11 +346,13 @@ class Player:
             self.unplayed_dev_cards.remove(action.card)
             self.played_dev_cards.append(action.card)
             if action.card == DevelopmentCard.KNIGHT:
+                game.move_robber_and_steal(self.index)
                 self.army_size += 1
             elif action.card == DevelopmentCard.ROAD_BUILDING:
                 self.free_roads_remaining += min(2, self.available_roads)
             elif action.card == DevelopmentCard.YEAR_OF_PLENTY:
-                game.select_and_give_resource(self.index)
+                for _ in range(2):
+                    game.select_and_give_resource(self.index)
             elif action.card == DevelopmentCard.MONOPOLY:
                 game.select_and_steal_all_resources(self.index)
         elif isinstance(action, TradeAction):

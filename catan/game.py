@@ -50,8 +50,7 @@ class Game:
 
         if roll == 7:
             # TODO: do that whole resources >= 8 thing
-            new_robber_location = self.player_agents[self.player_turn_index].agent.get_robber_placement()
-            self.move_robber_and_steal(new_robber_location)
+            self.move_robber_and_steal(self.player_turn_index)
             return
 
         for tile in self.board.tiles.values():
@@ -61,22 +60,40 @@ class Game:
                         count = 2 if road_vertex.has_city else 1
                         self.player_agents[road_vertex.owner].player.give_resource(tile.resource, count)
 
-    def move_robber_and_steal(self, location: CubeCoordinates):
-        print(f"{self.player_turn_index} moves robber to {location}")
+    def move_robber_and_steal(self, player_index: int):
+        player, agent = self.player_agents[player_index].as_tuple()
+        location = agent.get_robber_placement(self)
+        print(f"Player {self.player_turn_index + 1} moves robber to {location}")
         for tile in self.board.tiles.values():
             tile.has_robber = tile.cube_coords == location
             if tile.has_robber:
-                # TODO: implement robbing
-                pass
+                players_on_tile = [vertex.owner for vertex in tile.adjacent_road_vertices \
+                                   if vertex.owner is not None and vertex.owner != player_index]
+                if players_on_tile:
+                    steal_from = agent.get_player_to_steal_from(self, players_on_tile)
+                    target_player = self.player_agents[steal_from].player
+                    if target_player.get_resource_count() == 0:
+                        continue
+                    resource = target_player.take_random_resources(1)[0]
+                    player.give_resource(resource, 1)
+                    print(f"Player {self.player_turn_index + 1} steals from Player {steal_from + 1}")
+    
+    def discard_half_resources_from_all(self):
+        for player_agent in self.player_agents:
+            player = player_agent.player
+            if player.get_resource_count() > 7:
+                discard_count = player.resource_count() // 2
+                _ = player.take_random_resources(discard_count)
+                print(f"Player {player.index + 1} discards {discard_count} resources")
     
     def select_and_give_resource(self, player_index: int):
         player, agent = self.player_agents[player_index].as_tuple()
-        resource = agent.get_most_needed_resource()
+        resource = agent.get_most_needed_resource(self)
         player.give_resource(resource, 1)
 
     def select_and_steal_all_resources(self, player_index: int):
         player, agent = self.player_agents[player_index].as_tuple()
-        resource = agent.get_most_needed_resource()
+        resource = agent.get_most_needed_resource(self)
         count = 0
         for player_agent in self.player_agents:
             if player_agent.player.index != player_index:
@@ -89,8 +106,13 @@ class Game:
         # tuple unpacking causes type issues :/
         player, agent = self.player_agents[self.player_turn_index].as_tuple()
         all_possible_actions = player.get_all_possible_actions(self.board, self.game_phase == GamePhase.SETUP)
-        action = agent.get_action(all_possible_actions)
-        return player.perform_action(action, self.board, self)
+        if not all_possible_actions:
+            return
+        elif len(all_possible_actions) == 1:
+            return player.perform_action(all_possible_actions[0], self.board, self)
+        else:
+            action = agent.get_action(self, all_possible_actions)
+            return player.perform_action(action, self.board, self)
     
     def advance_player_turn(self):
         self.player_turn_index = (self.player_turn_index + 1) % len(self.player_agents)
