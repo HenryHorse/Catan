@@ -91,13 +91,15 @@ class Game:
         # if location is empty and not within one vertex of another settlement
         if location in self.occ_tiles:
             return False
+        # Allows for adjacent placement
         for neighbor in location.adjacent_roads:
             if neighbor in self.occ_tiles:
                 return False
+        # \/ wrong \/
         # Placing a settlement next to a desert tile is always a bad move
-        for tile in location.adjacent_tiles:
-            if tile.resource == 'desert':
-                return False
+        # for tile in location.adjacent_tiles:
+        #     if tile.resource == 'desert':
+        #        return False
         return True
 
     def is_valid_settlement_location(self, player, location):
@@ -112,28 +114,38 @@ class Game:
         return False
 
     def is_valid_road_location(self, loc1, loc2, player):
-        # TODO: check if the road connects to player's existing roads
-        # check if road is connected to player's existing roads or settlements
-        if (loc1, loc2) in self.occ_roads or (loc2, loc1) in self.occ_roads:
-            return False
-        # if loc1 in self.occ_tiles or loc2 in self.occ_tiles:
-        #     return False
-        if loc1 in loc2.adjacent_roads:
-            for road in player.roads:
-                if loc1 == road.rv1 or loc1 == road.rv2:
-                        return True
-                elif loc2 == road.rv1 or loc2 == road.rv2:
-                        return True
-            for settlement in player.settlements:
-                if loc1 == settlement.location or loc2 == settlement.location:
-                    return True
-            for city in player.cities:
-                if loc1 == city.location or loc2 == city.location:
-                    return True
-            return False
-        else:
+        # Check if a road already exists between loc1 and loc2 by comparing coordinates.
+        for existing_road in self.occ_roads:
+            if ((existing_road[0].x == loc1.x and existing_road[0].y == loc1.y and
+                 existing_road[1].x == loc2.x and existing_road[1].y == loc2.y) or
+                (existing_road[0].x == loc2.x and existing_road[0].y == loc2.y and
+                 existing_road[1].x == loc1.x and existing_road[1].y == loc1.y)):
+                return False
+
+        # Check that loc2 is really adjacent to loc1.
+        if loc2 not in loc1.adjacent_roads:
             return False
 
+        # Ensure the new road is connected to the player's network:
+        for road in player.roads:
+            if ((road.rv1.x == loc1.x and road.rv1.y == loc1.y) or
+                (road.rv2.x == loc1.x and road.rv2.y == loc1.y) or
+                (road.rv1.x == loc2.x and road.rv1.y == loc2.y) or
+                (road.rv2.x == loc2.x and road.rv2.y == loc2.y)):
+                return True
+
+        for settlement in player.settlements:
+            if ((settlement.location.x == loc1.x and settlement.location.y == loc1.y) or
+                (settlement.location.x == loc2.x and settlement.location.y == loc2.y)):
+                return True
+
+        for city in player.cities:
+            if ((city.location.x == loc1.x and city.location.y == loc1.y) or
+                (city.location.x == loc2.x and city.location.y == loc2.y)):
+                return True
+
+        return False
+    
     def occupy_tile(self, location):
         self.occ_tiles.append(location)
 

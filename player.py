@@ -8,6 +8,7 @@ from evaluation import evaluate_settlement_location
 class Player:
     def __init__(self, color):
         self.color = color
+        self.is_human = False
         self.resources = {
             'wood': 0,
             'grain': 0,
@@ -41,50 +42,25 @@ class Player:
         self.army_size = 0
         self.has_largest_army = False
 
-    def initialize_settlements_roads(self, game):
-        ''' builds 2 settlements and 2 roads on the map in random valid locations,
-            returns the location of the second settlement'''
+    def initialize_settlement_and_road(self, game):
+        ''' builds 1 settlement and 1 road on the map in random valid locations,
+            returns the location of the settlement'''
         settlement_loc1 = self.find_random_valid_settlement_location(game)
         self.build_settlement(settlement_loc1)
+        self.reset_resources()
         game.occupy_tile(settlement_loc1)
         _, resource_scores = evaluate_settlement_location(settlement_loc1, game)
         for resource in resource_scores:
             self.resource_scores[resource] += resource_scores[resource]
-        print(f"{self.color} built 1st settlement at {(settlement_loc1.x, settlement_loc1.y)}")
+        print(f"{self.color} built settlement at {(settlement_loc1.x, settlement_loc1.y)}")
 
         road_loc1 = self.find_random_valid_road_location(settlement_loc1, game)
         self.build_road(settlement_loc1, road_loc1)
+        self.reset_resources()
         game.occupy_road(settlement_loc1, road_loc1)
-        print(f"{self.color} built 1st road from {(settlement_loc1.x, settlement_loc1.y)} to {(road_loc1.x, road_loc1.y)}")
+        print(f"{self.color} built road from {(settlement_loc1.x, settlement_loc1.y)} to {(road_loc1.x, road_loc1.y)}")
 
-        settlement_loc2 = self.find_random_valid_settlement_location(game)
-        self.build_settlement(settlement_loc2)
-        game.occupy_tile(settlement_loc2)
-        _, resource_scores = evaluate_settlement_location(settlement_loc1, game)
-        for resource in resource_scores:
-            self.resource_scores[resource] += resource_scores[resource]
-        print(f"{self.color} built 2nd settlement at {(settlement_loc2.x, settlement_loc2.y)}")
-
-        road_loc2 = self.find_random_valid_road_location(settlement_loc2, game)
-        self.build_road(settlement_loc2, road_loc2)
-        game.occupy_road(settlement_loc2, road_loc2)
-        print(f"{self.color} built 2nd road from {(settlement_loc2.x, settlement_loc2.y)} to {(road_loc2.x, road_loc2.y)}")
-
-        self.resources = {
-            'wood': 0,
-            'grain': 0,
-            'sheep': 0,
-            'ore': 0,
-            'brick': 0,
-        }
-
-        # for all adjacent tiles to the settlement 2, add resource for player
-        for tile in settlement_loc2.adjacent_tiles:
-            self.add_resource(tile.resource, 1)
-
-
-
-        # return settlement_loc2
+        return settlement_loc1
 
     def find_random_valid_settlement_location(self, game):
         ''' returns a random road vertex that is valid '''
@@ -102,10 +78,21 @@ class Player:
 
 
     def find_random_valid_road_location(self, settlement_location, game):
-        ''' returns random road vertex that is the other point to the road, where the first point is the settlement'''
-        #TODO: verify that this logic is right
-        # valid_road_locations = [v for v in adjacent_vertices]
-        return random.choice(settlement_location.adjacent_roads)
+        """
+        Returns a random adjacent vertex to the settlement that results in a valid road,
+        i.e. one that isn’t already occupied.
+        """
+        valid_candidates = [
+            candidate
+            for candidate in settlement_location.adjacent_roads
+            if game.is_valid_road_location(settlement_location, candidate, self)
+        ]
+        if valid_candidates:
+            return random.choice(valid_candidates)
+        else:
+            print(f"No valid road placements available from settlement at ({settlement_location.x}, {settlement_location.y}).")
+            return None
+
 
     def add_resource(self, resource, amount):
         if resource != 'desert':
@@ -204,3 +191,13 @@ class Player:
         self.longest_road_size = max_length
         self.longest_road_path = best_path
         return max_length
+
+    def reset_resources(self):
+        self.resources = {
+            'wood': 0,
+            'grain': 0,
+            'sheep': 0,
+            'ore': 0,
+            'brick': 0,
+        }
+
