@@ -18,6 +18,9 @@ class Resource(enum.Enum):
     ORE = 3
     BRICK = 4
 
+    def __str__(self):
+        return self.name.title()
+
 class Harbor(enum.Enum):
     THREE_TO_ONE = 0
     ORE = 1
@@ -25,6 +28,11 @@ class Harbor(enum.Enum):
     BRICK = 3
     GRAIN = 4
     SHEEP = 5
+
+    def __str__(self):
+        if self == Harbor.THREE_TO_ONE:
+            return '3:1'
+        return f'2:1 {self.name.title()}'
 
 HARBOR_LOCATIONS = [
     (CubeCoordinates(1, -2, 1), 0, 1),
@@ -45,6 +53,9 @@ class DevelopmentCard(enum.Enum):
     YEAR_OF_PLENTY = 2
     MONOPOLY = 3
     VICTORY_POINT = 4
+
+    def __str__(self):
+        return self.name.replace('_', ' ').title()
 
 class DevelopmentCardDeck:
     cards: list[DevelopmentCard]
