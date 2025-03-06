@@ -199,17 +199,15 @@ class Player:
         self.pay_for(DEVELOPMENT_CARD_COST)
 
     def find_longest_road_size(self) -> int:
-        # TODO: hashsets for performance (will need to be implemented in roads an road vertices)
-        vertices_to_check: list[RoadVertex] = []
+        vertices_to_check: set[RoadVertex] = set()
         for road in self.roads:
             for vertex in road.endpoints:
-                if vertex not in vertices_to_check:
-                    vertices_to_check.append(vertex)
+                vertices_to_check.add(vertex)
 
         max_length = 0
         best_path = []
 
-        def dfs(vertex: RoadVertex, visited_roads: list[Road], current_length: int, current_path: list[Road]):
+        def dfs(vertex: RoadVertex, visited_roads: set[Road], current_length: int, current_path: list[Road]):
             nonlocal max_length, best_path
             if current_length > max_length:
                 max_length = current_length
@@ -221,7 +219,7 @@ class Player:
 
             for road in vertex.adjacent_roads:
                 if road.owner == self.index and road not in visited_roads:
-                    visited_roads.append(road)
+                    visited_roads.add(road)
                     next_vertex = road.endpoints[0] if road.endpoints[0] != vertex else road.endpoints[1]
                     current_path.append(road)
                     dfs(next_vertex, visited_roads, current_length + 1, current_path)
@@ -229,7 +227,7 @@ class Player:
                     visited_roads.remove(road)
 
         for vertex in vertices_to_check:
-            dfs(vertex, [], 0, [])
+            dfs(vertex, set(), 0, [])
 
         self.longest_road_size = max_length
         self.longest_road_path = best_path

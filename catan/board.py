@@ -112,6 +112,9 @@ class Tile:
         if not isinstance(other, Tile):
             return False
         return self.cube_coords == other.cube_coords
+    
+    def __hash__(self) -> int:
+        return hash(self.cube_coords)
 
     def get_screen_position(self, hex_radius: float) -> Point:
         return self.cube_coords.to_cartesian() * hex_radius
@@ -158,6 +161,9 @@ class RoadVertex:
             return False
         return self.parent_tile.cube_coords == other.parent_tile.cube_coords and \
             self.index_on_parent == other.index_on_parent
+    
+    def __hash__(self):
+        return hash((self.parent_tile.cube_coords, self.index_on_parent))
 
     def __repr__(self) -> str:
         return f'RoadVertex(harbor={self.harbor}, owner={self.owner}, has_settlement={self.has_settlement}, has_city={self.has_city})'
@@ -189,6 +195,9 @@ class Road:
         if not isinstance(other, Road):
             return False
         return self.endpoints == other.endpoints or self.endpoints == (other.endpoints[1], other.endpoints[0])
+    
+    def __hash__(self) -> int:
+        return hash(self.endpoints)
     
     def __repr__(self) -> str:
         return f'Road(endpoints={self.endpoints}, owner={self.owner})'
