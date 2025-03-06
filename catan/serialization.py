@@ -35,7 +35,7 @@ class BrickRepresentation:
         self.board = [[[0 for _ in range(self.width)] for _ in range(self.height)] for _ in range(num_players + 1)]
         self.player_states = [
             [0] * 12, # Actions for current player (Fix Later) 7 + 5 + 5 * (Board Brick Size)
-            *[[[0] * 13 for _ in range(num_players)]], # Resources for each player (Wheat, Wood, Brick, Ore, Sheep) + 
+            *[[[0] * 13 for _ in range(num_players)]], # Resources for each player (Wood, Grain, Sheep, Ore, Brick) + 
                                                     # Rem Roads + Rem Cit + Rem Sett + Vict Points + If Long Road + Length Long Road + If Larg Arm + Size Arm
             [0] * 5 # Array of dev cards of player at given time
         ]
