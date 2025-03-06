@@ -7,6 +7,11 @@ from catan.game import Game
 from catan.util import Point
 from catan.constants import *
 
+
+import torch
+
+
+
 class CatanUI:
     game: Game | None
     game_generator: Callable[[], Game]
@@ -224,7 +229,7 @@ class CatanUI:
         self.stats_title_font = pygame.font.SysFont('Arial', int(self.screen_height * 0.022))
         self.stats_font = pygame.font.SysFont('Arial', int(self.screen_height * 0.018))
 
-    def open_and_loop(self):
+    def open_and_loop(self, model):
         pygame.init()
         pygame.font.init()
         
@@ -254,6 +259,8 @@ class CatanUI:
             self.draw_turn_info()
             self.draw_player_stats(stats_rect)
             pygame.display.flip()
-        
+            torch.save(model.state_dict(), "RL_Model_File")
+
+        torch.save(model.state_dict(), "RL_Model_File")
         pygame.quit()
 

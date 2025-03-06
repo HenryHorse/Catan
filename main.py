@@ -3,8 +3,15 @@ import argparse
 from catan.board import Board
 from catan.player import Player
 from catan.agent.random import RandomAgent
+from catan.agent.RL import RLAgent
+
 from catan.game import Game, PlayerAgent
 from catan.ui import CatanUI
+from catan.tensor_embeder import QNetwork
+import torch.optim as optim
+import torch
+
+
 
 
 def parse_arguments():
@@ -14,11 +21,11 @@ def parse_arguments():
     parser.add_argument("--num-players", type=int, default=4, help="Number of players (default: 4)")
     return parser.parse_args()
 
-def create_game() -> Game:
+def create_game(model) -> Game:
     board = Board(3)
 
     player_1 = Player(0, (255, 0, 0))
-    agent_1 = RandomAgent(board, player_1)
+    agent_1 = RLAgent(board, player_1, model)
     player_2 = Player(1, (0, 0, 255))
     agent_2 = RandomAgent(board, player_2)
     player_3 = Player(2, (255, 255, 255))
@@ -33,8 +40,12 @@ def create_game() -> Game:
         PlayerAgent(player_4, agent_4)])
 
 def main():
-    catan_ui = CatanUI(create_game)
-    catan_ui.open_and_loop()
+    model = QNetwork()
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    model.load_state_dict(torch.load("RL_Model_File"))
+    model.eval()
+    catan_ui = CatanUI(create_game(model))
+    catan_ui.open_and_loop(model)
 
 if __name__ == '__main__':
     main()
