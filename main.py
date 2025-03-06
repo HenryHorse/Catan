@@ -38,7 +38,8 @@ def create_game(serialization) -> Game:
 def main():
    serialization = BrickRepresentation(5, 4)  
    game = create_game(serialization)  
-   print("Testing Serialization:")
+   serialization.recursive_serialize(game, game.board.center_tile, None, None)
+   print("Testing Serialization:", serialization.board)
    #serialization.recursive_serialize(game, game.board.center_tile)  
    #print(serialization.board[-1])  
 

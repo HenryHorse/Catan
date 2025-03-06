@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from catan.board import Tile, Road, Resource, DevelopmentCard, RoadVertex
+from catan.board import Tile, Road, Resource, DevelopmentCard, RoadVertex, Harbor
 from catan.game import Game, PlayerAgent
 from catan.player import Player, EndTurnAction, BuildSettlementAction, BuildCityAction, BuildRoadAction, BuyDevelopmentCardAction, UseDevelopmentCardAction, TradeAction
 
@@ -18,6 +18,11 @@ RESOURCE_MAP = {
 HARBOR_MAP = {
     None: 0, '3:1 any': 1, '2:1 ore': 2, '2:1 wood': 3, '2:1 brick': 4, '2:1 grain': 5, '2:1 sheep': 6
 }
+
+BRICK_TILE_DISPLACEMENTS = [(2, 2), (4, 0), (2, -2), (-2, -2), (-4, 0), (-2, 2)]
+BRICK_ROAD_VERTEX_DISPLACEMENTS = [(0, 1), (2, 1), (2, -1), (0, -1), (-2, -1), (-2, 1)]
+BRICK_ROAD_DISPLACEMENTS = [(1, 1), (2, 0), (1, -1), (-1, -1), (-2, 0), (-1, 1)]
+
 
 
 @dataclass(init=False)
@@ -100,118 +105,58 @@ class BrickRepresentation:
     def board_state(self):
         return self.board[-1]
     
-
-    # All below functions need refactoring to adjust for new board remuwork (there's no x y coords anymore, just tiles and what they are adjacent too)
-    '''
     def recursive_serialize(
-        self,
-        game: Game,
-        center_tile: Tile,
-        center: tuple[int, int] | None = None,
-        visited: set[tuple[int, int]] | None = None
-        ):
+            self,
+            game: Game,
+            center_tile: Tile | None = None,
+            center: tuple[int, int] | None = None,
+            visited: set[tuple[int, int]] | None = None):
+        center_tile = center_tile or game.board.center_tile
         center = center or (2 * self.size, self.size)
         visited = visited or set()
         if center in visited: return
         visited.add(center)
 
         self.serialize_tile(game, center_tile, center)
-        for neighbor in center_tile.adjacent_tiles:
-            dx, dy = BrickRepresentation.get_tile_displacement(center_tile, neighbor)
+        for i, neighbor in enumerate(center_tile.adjacent_tiles):
+            if neighbor is None: continue
+            dx, dy = BRICK_TILE_DISPLACEMENTS[i]
             self.recursive_serialize(game, neighbor, (center[0] + dx, center[1] + dy), visited)
-
+    
     def serialize_tile(self, game: Game, tile: Tile, center: tuple[int, int]):
         x, y = center
         
         # Last channel for board state
-        self.board[-1][y][x] = tile.number or 0
-        self.board[-1][y][x - 1] = RESOURCE_MAP[tile.resource]
-        self.board[-1][y][x + 1] = 1 if game.board.get_robber_tile().cube_coords.to_cartesian() == tile.cube_coords.to_cartesian() else 0  
+        self.board[-1][y][x] = tile.number
+        # Must be desert
+        if (tile.resource == None):
+            self.board[-1][y][x - 1] = 0
+        else:
+            self.board[-1][y][x - 1] = tile.resource.value + 1
+        self.board[-1][y][x + 1] = 1 if tile.has_robber else 0
 
-        for index, intersection in enumerate(tile.adjacent_roads):
-            next_intersection = tile.adjacent_roads[(index + 1) % len(tile.adjacent_roads)]
-            int_dx, int_dy = BrickRepresentation.get_intersection_displacement(tile, intersection)
-            self.serialize_intersection(game, intersection, (x + int_dx, y + int_dy))
-            road_dx, road_dy = BrickRepresentation.get_road_displacement(tile, intersection)
-            self.serialize_road(game, intersection, next_intersection, (x + road_dx, y + road_dy))
+        for i, road_vertex in enumerate(tile.adjacent_road_vertices):
+            if road_vertex is None: continue
+            dx, dy = BRICK_ROAD_VERTEX_DISPLACEMENTS[i]
+            self.serialize_road_vertex(game, road_vertex, (x + dx, y + dy))
 
+            # stores harbor info
             harbor_value = 0
-            if hasattr(intersection, "harbor") and intersection.harbor:
-                harbor_value = HARBOR_MAP.get(intersection.harbor_type, 0)
-                self.board[-1][y+int_dy][x+int_dx] = harbor_value  # Store harbor info
-
-
+            if (road_vertex.harbor != None):
+                harbor_value = road_vertex.harbor.value + 1
+                self.board[-1][y+dy][x+dx] = harbor_value 
+        
+        for i, road in enumerate(tile.adjacent_roads):
+            if road is None: continue
+            dx, dy = BRICK_ROAD_DISPLACEMENTS[i]
+            self.serialize_road(game, road, (x + dx, y + dy))
     
-    def serialize_intersection(self, game: Game, intersection: RoadVertex, position: tuple[int, int]):
+    def serialize_road_vertex(self, game: Game, intersection: RoadVertex, position: tuple[int, int]):
         x, y = position
-        for index, player in enumerate(game.players):
-            player: Player = player
-            for settlement in player.settlements:
-                if (settlement.location.x, settlement.location.y) == (x, y):
-                    self.board[index][y][x] = 1  # Village placement on channel of player
-                    return
-            for city in player.cities:
-                if (city.location.x, city.location.y) == (x, y):
-                    self.board[index][y][x] = 2  # City placement on channel of player
-                    return
+        if intersection.owner is not None:
+            self.board[intersection.owner][y][x] = 2 if intersection.has_city else 1
     
-    def serialize_road(self, game: Game, intersection_1: RoadVertex, intersection_2: RoadVertex, position: tuple[int, int]):
+    def serialize_road(self, game: Game, road: Road, position: tuple[int, int]):
         x, y = position
-        for index, player in enumerate(game.players):
-            player: Player = player
-            for road in player.roads:
-                if ((road.rv1.x, road.rv1.y) == (intersection_1.x, intersection_1.y) and \
-                    (road.rv2.x, road.rv2.y) == (intersection_2.x, intersection_2.y)) or \
-                   ((road.rv1.x, road.rv1.y) == (intersection_2.x, intersection_2.y) and \
-                    (road.rv2.x, road.rv2.y) == (intersection_1.x, intersection_1.y)):
-                    self.board[index][y][x] = 1  # Road placement on channel of player
-                    return           
-    
-    def get_intersection_displacement(tile: Tile, intersection: RoadVertex) -> tuple[int, int]:
-        intersection_x, intersection_y = intersection.get_position()
-
-        if intersection_x == tile.x and intersection_y < tile.y:
-            return [0, -1]
-        elif intersection.x == tile.x and intersection.y > tile.y:
-            return [0, 1]
-        elif intersection.y < tile.y and intersection.x < tile.x:
-            return [-2, -1]
-        elif intersection.y < tile.y and intersection.x > tile.x:
-            return [2, -1]
-        elif intersection.y > tile.y and intersection.x < tile.x:
-            return [-2, 1]
-        elif intersection.y > tile.y and intersection.x > tile.x:
-            return [2, 1]
-        raise ValueError("Invalid intersection position")
-    
-    # assumes that the intersections are ordered in a clockwise direction
-    def get_road_displacement(tile: Tile, intersection_1: RoadVertex) -> tuple[int, int]:
-        if intersection_1.x == tile.x and intersection_1.y < tile.y:
-            return [1, -1]
-        elif intersection_1.x == tile.x and intersection_1.y > tile.y:
-            return [-1, 1]
-        elif intersection_1.y < tile.y and intersection_1.x < tile.x:
-            return [-1, -1]
-        elif intersection_1.y < tile.y and intersection_1.x > tile.x:
-            return [2, 0]
-        elif intersection_1.y > tile.y and intersection_1.x < tile.x:
-            return [-2, 0]
-        elif intersection_1.y > tile.y and intersection_1.x > tile.x:
-            return [1, 1]
-        raise ValueError("Invalid intersection position")
-    
-    def get_tile_displacement(tile: Tile, neighbor: Tile) -> tuple[int, int]:
-        if neighbor.y == tile.y and neighbor.x > tile.x:
-            return [4, 0]
-        elif neighbor.y == tile.y and neighbor.x < tile.x:
-            return [-4, 0]
-        elif neighbor.y < tile.y and neighbor.x < tile.x:
-            return [-2, -2]
-        elif neighbor.y < tile.y and neighbor.x > tile.x:
-            return [2, -2]
-        elif neighbor.y > tile.y and neighbor.x < tile.x:
-            return [-2, 2]
-        elif neighbor.y > tile.y and neighbor.x > tile.x:
-            return [2, 2]
-        raise ValueError("Invalid neighbor position")
-'''
+        if road.owner is not None:
+            self.board[road.owner][y][x] = 1

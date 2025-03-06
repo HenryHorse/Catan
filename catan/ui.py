@@ -201,6 +201,7 @@ class CatanUI:
                 self.game.do_full_turn()
                 self.serialization.encode_player_states(self.game, self.game.player_agents[0])
                 print("Player States (Playr 1) :", self.serialization.player_states)
+                print("Player 1 Board State: ", self.serialization.board[0])
                 if self.game.winning_player_index is not None:
                     print(f"Player {self.game.winning_player_index + 1} wins!")
             elif event.key == pygame.K_x:
