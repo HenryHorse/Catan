@@ -5,6 +5,7 @@ from catan.player import Player
 from catan.agent.random import RandomAgent
 from catan.game import Game, PlayerAgent
 from catan.ui import CatanUI
+from catan.serialization import BrickRepresentation
 
 
 def parse_arguments():
@@ -14,7 +15,7 @@ def parse_arguments():
     parser.add_argument("--num-players", type=int, default=4, help="Number of players (default: 4)")
     return parser.parse_args()
 
-def create_game() -> Game:
+def create_game(serialization) -> Game:
     board = Board(3)
 
     player_1 = Player(0, (255, 0, 0))
@@ -26,6 +27,8 @@ def create_game() -> Game:
     player_4 = Player(3, (255, 102, 0))
     agent_4 = RandomAgent(board, player_4)
 
+
+
     return Game(board, [
         PlayerAgent(player_1, agent_1),
         PlayerAgent(player_2, agent_2),
@@ -33,8 +36,14 @@ def create_game() -> Game:
         PlayerAgent(player_4, agent_4)])
 
 def main():
-    catan_ui = CatanUI(create_game)
-    catan_ui.open_and_loop()
+   serialization = BrickRepresentation(5, 4)  
+   game = create_game(serialization)  
+   print("Testing Serialization:")
+   #serialization.recursive_serialize(game, game.board.center_tile)  
+   #print(serialization.board[-1])  
+
+   catan_ui = CatanUI(lambda: game, serialization=serialization) # Pass serialization into catan_ui for testing
+   catan_ui.open_and_loop()
 
 if __name__ == '__main__':
     main()

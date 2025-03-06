@@ -6,6 +6,7 @@ import pygame
 from catan.game import Game
 from catan.util import Point
 from catan.constants import *
+from catan.serialization import BrickRepresentation
 
 class CatanUI:
     game: Game | None
@@ -26,10 +27,11 @@ class CatanUI:
     stats_title_font: pygame.font.Font
     stats_font: pygame.font.Font
 
-    def __init__(self, game_generator: Callable[[], Game]):
+    def __init__(self, game_generator: Callable[[], Game], serialization: BrickRepresentation):
         self.game = None
         self.game_generator = game_generator
         self.screen = None
+        self.serialization = serialization
 
     def draw_tile(
             self,
@@ -197,6 +199,8 @@ class CatanUI:
             if event.key == pygame.K_SPACE and self.game.winning_player_index is None:
                 print(f'-------- Player {self.game.player_turn_index + 1} takes turn {self.game.main_turns_elapsed + 1} --------')
                 self.game.do_full_turn()
+                self.serialization.encode_player_states(self.game, self.game.player_agents[0])
+                print("Player States (Playr 1) :", self.serialization.player_states)
                 if self.game.winning_player_index is not None:
                     print(f"Player {self.game.winning_player_index + 1} wins!")
             elif event.key == pygame.K_x:
