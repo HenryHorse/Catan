@@ -213,7 +213,7 @@ class CatanUI:
             la_has = player.has_largest_army
             lr_color = GREEN if lr_has else RED
             la_color = GREEN if la_has else RED
-            status_x = header_x + header_surface.get_width() + 40
+            status_x = header_x + header_surface.get_width() + 15
             lr_surface = self.stats_font.render("Longest Road", True, lr_color)
             self.screen.blit(lr_surface, (status_x, header_y))
             la_surface = self.stats_font.render("Largest Army", True, la_color)
@@ -319,7 +319,7 @@ class CatanUI:
                 pygame.draw.rect(self.screen, BLACK, btn_rect, 3)
             else:
                 pygame.draw.rect(self.screen, BLACK, btn_rect, 1)
-            label = self.stats_font.render(str(res), True, BLACK)
+            label = self.stats_font.render(str(res)[:1], True, BLACK)
             label_rect = label.get_rect(center=btn_rect.center)
             self.screen.blit(label, label_rect)
             self.trade_out_buttons.append((btn_rect, res))
@@ -344,7 +344,7 @@ class CatanUI:
                 pygame.draw.rect(self.screen, BLACK, btn_rect, 3)
             else:
                 pygame.draw.rect(self.screen, BLACK, btn_rect, 1)
-            label = self.stats_font.render(str(res), True, BLACK)
+            label = self.stats_font.render(str(res)[:1], True, BLACK)
             label_rect = label.get_rect(center=btn_rect.center)
             self.screen.blit(label, label_rect)
             self.trade_in_buttons.append((btn_rect, res))
@@ -426,7 +426,6 @@ class CatanUI:
             else:
                 # MAIN phase for human.
                 if event.type == pygame.MOUSEBUTTONDOWN:
-                    print('yep mouse down')
                     if hasattr(self, "trade_rect") and self.trade_rect.collidepoint(mouse_pos):
                         if self.buy_dev_rect.collidepoint(mouse_pos):
                             try:
@@ -450,21 +449,20 @@ class CatanUI:
                             print("Submit Trade clicked.")
                             self.attempt_trade()
                         return
-
-                if event.type == pygame.MOUSEBUTTONDOWN:
-                    if hover_road is not None:
-                        if current_player.player.is_valid_road_location(hover_road):
-                            current_player.player.build_road(hover_road, self.game, True)
-                    elif hover_vertex is not None:
-                        if current_player.player.is_valid_settlement_location(hover_vertex) and not hover_vertex.has_settlement:
-                            current_player.player.build_settlement(hover_vertex, True)
-                        elif current_player.player.is_valid_city_location(hover_vertex) and not hover_vertex.has_city:
-                            current_player.player.build_city(hover_vertex, True)
-                if event.type == pygame.KEYDOWN and event.key == pygame.K_c and self.game.winning_player_index is None:
+                    else:
+                        if hover_road is not None:
+                            if current_player.player.is_valid_road_location(hover_road):
+                                current_player.player.build_road(hover_road, self.game, True)
+                        elif hover_vertex is not None:
+                            if current_player.player.is_valid_settlement_location(hover_vertex) and not hover_vertex.has_settlement:
+                                current_player.player.build_settlement(hover_vertex, True)
+                            elif current_player.player.is_valid_city_location(hover_vertex) and not hover_vertex.has_city:
+                                current_player.player.build_city(hover_vertex, True)
+                elif event.type == pygame.KEYDOWN and event.key == pygame.K_c and self.game.winning_player_index is None:
                     print(f'-------- Human Player {self.game.player_turn_index + 1} ends turn {self.game.main_turns_elapsed + 1} --------')
                     self.game.human_dice_rolled = False
                     self.game.advance_player_turn()
-        elif event.type == pygame.KEYDOWN:
+        elif event.type == pygame.KEYDOWN and not self.game.has_human:
             if event.key == pygame.K_SPACE and self.game.winning_player_index is None:
                 print(f'-------- Player {self.game.player_turn_index + 1} takes turn {self.game.main_turns_elapsed + 1} --------')
                 self.game.do_full_turn()
@@ -518,6 +516,17 @@ class CatanUI:
             hover_road = self.game.board.get_road_at_pos(mouse_pos, self.hexagon_size, self.displacement)
             if hover_vertex:
                 hover_road = None
+            if self.game.has_human and self.game.player_turn_index != 0:
+                if self.game.winning_player_index is None:
+                    print(f'-------- Player {self.game.player_turn_index + 1} takes turn {self.game.main_turns_elapsed + 1} --------')
+                    self.game.do_full_turn()
+                    if self.game.winning_player_index is not None:
+                        print(f"Player {self.game.winning_player_index + 1} wins!")
+            elif self.game.has_human and self.game.human_dice_rolled == False and self.game.game_phase == GamePhase.MAIN:
+                if self.game.winning_player_index is None:
+                    print(f'-------- Human Player starts turn {self.game.main_turns_elapsed + 1} --------')
+                    self.game.human_dice_roll()
+                    self.game.human_dice_rolled = True
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False

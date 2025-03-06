@@ -28,7 +28,6 @@ class Game:
     player_turn_index: int
     winning_player_index: int | None
     setup_turns_elapsed: int
-    manual_setup_turns_done : int
     main_turns_elapsed: int
     game_phase: GamePhase
     setup_round_count: int
@@ -36,6 +35,7 @@ class Game:
     largest_army_size: int
     human_dice_rolled: bool
     setup_turn_counter: int
+    has_human: bool
 
     ''' keep track of the state of the game'''
     def __init__(self, board: Board, player_agents: list[PlayerAgent]):
@@ -46,7 +46,6 @@ class Game:
         self.player_turn_index = 0
         self.winning_player_index = None
         self.setup_turns_elapsed = 0
-        self.manual_setup_turns_done = 0
         self.main_turns_elapsed = 0
         self.game_phase = GamePhase.SETUP
         self.setup_round_count = 2
@@ -147,36 +146,27 @@ class Game:
                             if not isinstance(pa.agent, HumanAgent)]
                 # Desired overall order:
                 total_order = [human_index] + bot_indices + bot_indices[::-1] + [human_index]
-                # Initialize our setup_turn_counter if not already set.
                 if not hasattr(self, "setup_turn_counter"):
                     self.setup_turn_counter = 0
                 if self.setup_turn_counter < len(total_order):
                     current_player_index = total_order[self.setup_turn_counter]
                     if current_player_index == human_index:
                         print("Human setup turn: waiting for human input.")
-                        # Human turn: UI must allow placement of settlement and road,
-                        # then (upon pressing 'c') the UI should do:
-                        #   self.advance_player_turn() and self.setup_turn_counter += 1
                         return
                     else:
                         print(f"Bot {current_player_index + 1} auto-turn: placing settlement and road.")
-                        # For a bot turn, automatically perform both actions:
                         self.get_and_perform_player_action(current_player_index)  # settlement
                         self.get_and_perform_player_action(current_player_index)  # road
                         self.setup_turn_counter += 1
-                        # Update player_turn_index to the next turn in our explicit order:
                         if self.setup_turn_counter < len(total_order):
                             self.player_turn_index = total_order[self.setup_turn_counter]
                         return
                 else:
-                    # All setup turns complete.
                     print("Setup complete; entering main phase.")
                     self.game_phase = GamePhase.MAIN
-                    # Set turn to human (or another starting index) for main phase.
                     self.player_turn_index = human_index
                     return
             else:
-                # No human present: use your original snake order logic.
                 n = len(self.player_agents)
                 actions_per_player = 2  # settlement then road
                 total_actions_in_round = n * actions_per_player
