@@ -37,8 +37,8 @@ class BrickRepresentation:
         self.width = 4 * size + 1
         self.height = 2 * size + 1
         self.num_players = num_players
-        #3n+1 channels (3 per player (structures, resources, dev cards) + 1 for board state)
-        self.board = np.zeros((3 * num_players + 1, self.height, self.width), dtype=np.int32)
+        # 4n+1 channels (3 per player, 1 for actions, 1 for board state)
+        self.board = np.zeros((4 * num_players + 1, self.height, self.width), dtype=np.int32)
 
     def to_1d(self):
         return self.board.flatten()
@@ -64,7 +64,7 @@ class BrickRepresentation:
     def serialize_tile(self, game: Game, tile: TileVertex, center: tuple[int, int]):
         x, y = center
 
-        #Encode tile resources, dice numbers, and robber
+        # Encode tile resources, dice numbers, and robber
         self.board[-1][y][x] = tile.number or 0  # Dice roll number
         self.board[-1][y][x - 1] = RESOURCE_MAP[tile.resource]  # Resource type
         self.board[-1][y][x + 1] = 1 if game.board.get_robber_tile() == tile else 0  # Robber
@@ -81,35 +81,12 @@ class BrickRepresentation:
                 harbor_value = HARBOR_MAP.get(road_vertex.harbor_type, 0)
                 self.board[-1][y + int_dy][x + int_dx] = harbor_value
 
-    def serialize_intersection(self, game: Game, intersection: RoadVertex, position: tuple[int, int]):
-        x, y = position
-        for player_index, player_agent in enumerate(game.player_agents):
-            player = player_agent.player
-            player_channel = player_index  # Structures channel
-            for settlement in player.settlements:
-                if settlement.location == intersection:
-                    self.board[player_channel][y][x] = 1  # Settlement placement
-                    return
-            for city in player.cities:
-                if city.location == intersection:
-                    self.board[player_channel][y][x] = 2  # City placement
-                    return
-
-    def serialize_road(self, game: Game, intersection_1: RoadVertex, intersection_2: RoadVertex, position: tuple[int, int]):
-        x, y = position
-        for player_index, player_agent in enumerate(game.player_agents):
-            player = player_agent.player
-            player_channel = player_index  # Structures channel
-            for road in player.roads:
-                if {road.rv1, road.rv2} == {intersection_1, intersection_2}:
-                    self.board[player_channel][y][x] = 3  # Road placement
-                    return
-
     def serialize_player_info(self, game: Game):
         for player_index, player_agent in enumerate(game.player_agents):
             player = player_agent.player
             resources_channel = self.num_players + player_index  # Resource channel
             dev_cards_channel = 2 * self.num_players + player_index  # Development cards channel
+            actions_channel = 3 * self.num_players + player_index  # Available actions channel
 
             # Encode resources
             for resource, count in player.resources.items():
@@ -118,3 +95,9 @@ class BrickRepresentation:
             # Encode development cards
             for card in player.unplayed_dev_cards:
                 self.board[dev_cards_channel][0][card.value] += 1  # Store in Dev Card channel
+
+            # Encode available actions
+            available_actions = player.get_all_possible_actions(game.board, game.game_phase == GamePhase.SETUP)
+            for action in available_actions:
+                action_code = ACTION_MAP.get(type(action), 0)  
+                self.board[actions_channel][0][action_code] = 1  # Encode available actions
