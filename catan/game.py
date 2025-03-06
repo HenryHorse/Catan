@@ -2,6 +2,7 @@ import random
 from dataclasses import dataclass
 from enum import Enum
 
+from catan.agent.human import HumanAgent
 from catan.board import Board
 from catan.player import Player
 from catan.agent import Agent
@@ -27,9 +28,14 @@ class Game:
     player_turn_index: int
     winning_player_index: int | None
     setup_turns_elapsed: int
+    manual_setup_turns_done : int
     main_turns_elapsed: int
     game_phase: GamePhase
     setup_round_count: int
+    longest_road_length: int
+    largest_army_size: int
+    human_dice_rolled: bool
+    setup_turn_counter: int
 
     ''' keep track of the state of the game'''
     def __init__(self, board: Board, player_agents: list[PlayerAgent]):
@@ -40,9 +46,16 @@ class Game:
         self.player_turn_index = 0
         self.winning_player_index = None
         self.setup_turns_elapsed = 0
+        self.manual_setup_turns_done = 0
         self.main_turns_elapsed = 0
         self.game_phase = GamePhase.SETUP
         self.setup_round_count = 2
+        self.longest_road_length = 4
+        self.largest_army_size = 2
+        self.human_dice_rolled = False
+        self.has_human = any(isinstance(pa.agent, HumanAgent) for pa in player_agents)
+        self.setup_stage = 0
+        self.setup_turn_counter = 0
 
     def perform_dice_roll(self):
         roll = random.randint(1, 6) + random.randint(1, 6)
@@ -102,9 +115,12 @@ class Game:
         player.give_resource(resource, count)
 
     # returns whether the player has ended their turn
-    def get_and_perform_player_action(self):
-        # tuple unpacking causes type issues :/
-        player, agent = self.player_agents[self.player_turn_index].as_tuple()
+    def get_and_perform_player_action(self, player_index: int = None):
+        # Use the provided index if given, else use the stored player_turn_index.
+        if player_index is None:
+            player_index = self.player_turn_index
+        # tuple unpacking moment
+        player, agent = self.player_agents[player_index].as_tuple()
         all_possible_actions = player.get_all_possible_actions(self.board, self.game_phase == GamePhase.SETUP)
         if not all_possible_actions:
             return
@@ -120,22 +136,105 @@ class Game:
     def do_full_turn(self):
         if self.winning_player_index is not None:
             return
+
         if self.game_phase == GamePhase.SETUP:
-            if self.setup_turns_elapsed >= len(self.player_agents) * 2 * self.setup_round_count:
-                self.game_phase = GamePhase.MAIN
-                return
-            self.get_and_perform_player_action()
-            if self.setup_turns_elapsed % 2 == 1:
-                self.advance_player_turn()
-            self.setup_turns_elapsed += 1
+            if self.has_human:
+                # Determine the explicit order.
+                # Assumes one human at index 0 and bots at the remaining indices.
+                human_index = next(i for i, pa in enumerate(self.player_agents)
+                                    if isinstance(pa.agent, HumanAgent))
+                bot_indices = [i for i, pa in enumerate(self.player_agents)
+                            if not isinstance(pa.agent, HumanAgent)]
+                # Desired overall order:
+                total_order = [human_index] + bot_indices + bot_indices[::-1] + [human_index]
+                # Initialize our setup_turn_counter if not already set.
+                if not hasattr(self, "setup_turn_counter"):
+                    self.setup_turn_counter = 0
+                if self.setup_turn_counter < len(total_order):
+                    current_player_index = total_order[self.setup_turn_counter]
+                    if current_player_index == human_index:
+                        print("Human setup turn: waiting for human input.")
+                        # Human turn: UI must allow placement of settlement and road,
+                        # then (upon pressing 'c') the UI should do:
+                        #   self.advance_player_turn() and self.setup_turn_counter += 1
+                        return
+                    else:
+                        print(f"Bot {current_player_index + 1} auto-turn: placing settlement and road.")
+                        # For a bot turn, automatically perform both actions:
+                        self.get_and_perform_player_action(current_player_index)  # settlement
+                        self.get_and_perform_player_action(current_player_index)  # road
+                        self.setup_turn_counter += 1
+                        # Update player_turn_index to the next turn in our explicit order:
+                        if self.setup_turn_counter < len(total_order):
+                            self.player_turn_index = total_order[self.setup_turn_counter]
+                        return
+                else:
+                    # All setup turns complete.
+                    print("Setup complete; entering main phase.")
+                    self.game_phase = GamePhase.MAIN
+                    # Set turn to human (or another starting index) for main phase.
+                    self.player_turn_index = human_index
+                    return
+            else:
+                # No human present: use your original snake order logic.
+                n = len(self.player_agents)
+                actions_per_player = 2  # settlement then road
+                total_actions_in_round = n * actions_per_player
+                total_setup_turns = total_actions_in_round * self.setup_round_count
+
+                if self.setup_turns_elapsed >= total_setup_turns:
+                    self.game_phase = GamePhase.MAIN
+                    for pa in self.player_agents:
+                        pa.player.pending_settlement_for_road = None
+                    self.player_turn_index = 0
+                    return
+
+                current_round = self.setup_turns_elapsed // total_actions_in_round
+                remainder = self.setup_turns_elapsed % total_actions_in_round
+                player_index_in_round = remainder // actions_per_player
+                action_index = remainder % actions_per_player  # 0 for settlement, 1 for road
+
+                if current_round % 2 == 0:
+                    current_player_index = player_index_in_round
+                else:
+                    current_player_index = n - 1 - player_index_in_round
+
+                if action_index == 0:
+                    print(f"Round {current_round+1} - Player {current_player_index + 1} places a settlement.")
+                else:
+                    print(f"Round {current_round+1} - Player {current_player_index + 1} places a road.")
+                self.get_and_perform_player_action(current_player_index)
+                self.setup_turns_elapsed += 1
+
         else:
+            # MAIN phase: roll dice, process actions until turn ends, etc.
             self.perform_dice_roll()
-            # keep performing actions until the player ends their turn
             while not self.get_and_perform_player_action():
                 pass
             self.main_turns_elapsed += 1
-            for player_agent in self.player_agents:
-                if player_agent.player.victory_points >= 10:
-                    self.winning_player_index = player_agent.player.index
+            for pa in self.player_agents:
+                if pa.player.victory_points >= 10:
+                    self.winning_player_index = pa.player.index
                     return
             self.advance_player_turn()
+
+    def human_dice_roll(self):
+        self.perform_dice_roll()
+
+    def awardLongestRoad(self, player: Player):
+        for player_ag in self.player_agents:
+            curr_player = player_ag.player
+            if curr_player != player and curr_player.has_longest_road:
+                curr_player.has_longest_road = False
+                curr_player.victory_points -= 2
+        player.has_longest_road = True
+        player.victory_points += 2
+
+    def awardLargestArmy(self, player: Player):
+        for player_ag in self.player_agents:
+            curr_player = player_ag.player
+            if curr_player != player and curr_player.has_largest_army:
+                curr_player.has_largest_army = False
+                curr_player.victory_points -= 2
+        player.has_largest_army = True
+        player.victory_points += 2
