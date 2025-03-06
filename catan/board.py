@@ -80,6 +80,7 @@ class Tile:
     resource: Resource | None
     number: int
     has_robber: bool
+
     # fixed length of 6
     # order: top-right, right, bottom-right, bottom-left, left, top-left
     adjacent_tiles: list[Tile | None]
@@ -116,16 +117,23 @@ class Tile:
         return self.cube_coords.to_cartesian() * hex_radius
 
 class RoadVertex:
+    parent_tile: Tile
+    index_on_parent: int
+
     harbor: Harbor | None
     owner: int | None
     has_settlement: bool
     has_city: bool
+
     adjacent_tiles: list[Tile]
     adjacent_road_vertices: list[RoadVertex]
     adjacent_roads: list[Road]
 
+
     def __init__(
             self,
+            parent_tile: Tile,
+            index_on_parent: int,
             harbor: Harbor | None = None,
             owner: int | None = None,
             has_settlement: bool = False,
@@ -133,22 +141,23 @@ class RoadVertex:
             adjacent_tiles: list[Tile | None] | None = None,
             adjacent_road_vertices: list[RoadVertex] | None = None,
             adjacent_roads: list[Road | None] | None = None):
+        self.parent_tile = parent_tile
+        self.index_on_parent = index_on_parent
+
         self.harbor = harbor
         self.owner = owner
         self.has_settlement = has_settlement
         self.has_city = has_city
+
         self.adjacent_tiles = adjacent_tiles or []
         self.adjacent_road_vertices = adjacent_road_vertices or []
         self.adjacent_roads = adjacent_roads or []
 
     def __eq__(self, other: object) -> bool:
-        # maybe the worst eq function of all time
         if not isinstance(other, RoadVertex):
             return False
-        for vertex, other_vertex in zip(self.adjacent_road_vertices, other.adjacent_road_vertices):
-            if vertex.adjacent_tiles != other_vertex.adjacent_tiles:
-                return False
-        return self.adjacent_tiles == other.adjacent_tiles
+        return self.parent_tile.cube_coords == other.parent_tile.cube_coords and \
+            self.index_on_parent == other.index_on_parent
 
     def __repr__(self) -> str:
         return f'RoadVertex(harbor={self.harbor}, owner={self.owner}, has_settlement={self.has_settlement}, has_city={self.has_city})'
@@ -162,7 +171,9 @@ class RoadVertex:
 class Road:
     endpoints: tuple[RoadVertex, RoadVertex]
     owner: int | None
+
     adjacent_tiles: list[Tile]
+
 
     def __init__(
             self,
@@ -171,6 +182,7 @@ class Road:
             adjacent_tiles: list[Tile | None] | None = None):
         self.endpoints = endpoints
         self.owner = owner
+
         self.adjacent_tiles = adjacent_tiles or []
 
     def __eq__(self, other: object) -> bool:
@@ -250,7 +262,7 @@ class Board:
         for i in range(6):
             if tile.adjacent_road_vertices[i] is not None:
                 continue
-            new_road_vertex = RoadVertex()
+            new_road_vertex = RoadVertex(tile, i)
             tile.adjacent_road_vertices[i] = new_road_vertex
             new_road_vertex.adjacent_tiles.append(tile)
             self.road_vertices.append(new_road_vertex)

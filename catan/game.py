@@ -1,11 +1,11 @@
 import random
 from dataclasses import dataclass
 from enum import Enum
+from typing import Callable
 
 from catan.board import Board
 from catan.player import Player
 from catan.agent import Agent
-from catan.util import CubeCoordinates
 
 
 @dataclass
@@ -100,6 +100,46 @@ class Game:
                 count += player_agent.player.resources[resource]
                 player_agent.player.resources[resource] = 0
         player.give_resource(resource, count)
+    
+    def award_from_highest_score(
+            self,
+            score_func: Callable[[Player], int],
+            award_func: Callable[[Player, bool], None],
+            min_score: int,
+    ):
+        scores = [score_func(player_agent.player) for player_agent in self.player_agents]
+        highest_score = max(scores)
+        players_with_highest_score = [i for i, score in enumerate(scores) if score == highest_score and score >= min_score]
+
+        # If nobody meets the requirements for the card, nobody gets it.
+        if not players_with_highest_score:
+            for player_agent in self.player_agents:
+                award_func(player_agent.player, False)
+
+        # If there is only one player with the highest score, they get the card.
+        # Ties would theoretically be broken by previous assertions
+        if len(players_with_highest_score) == 1:
+            winning_index = players_with_highest_score[0]
+            for i, player_agent in enumerate(self.player_agents):
+                award_func(player_agent.player, i == winning_index)
+    
+    def recompute_longest_road(self):
+        def set_award(player: Player, award: bool):
+            player.has_longest_road = award
+        self.award_from_highest_score(
+            lambda player: player.find_longest_road_size(),
+            set_award,
+            5
+        )
+    
+    def recompute_largest_army(self):
+        def set_award(player: Player, award: bool):
+            player.has_largest_army = award
+        self.award_from_highest_score(
+            lambda player: player.army_size,
+            set_award,
+            3
+        )
 
     # returns whether the player has ended their turn
     def get_and_perform_player_action(self):
@@ -134,8 +174,10 @@ class Game:
             while not self.get_and_perform_player_action():
                 pass
             self.main_turns_elapsed += 1
+            self.recompute_longest_road()
+            self.recompute_largest_army()
             for player_agent in self.player_agents:
-                if player_agent.player.victory_points >= 10:
+                if player_agent.player.get_victory_points() >= 10:
                     self.winning_player_index = player_agent.player.index
                     return
             self.advance_player_turn()

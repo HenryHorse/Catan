@@ -150,7 +150,7 @@ class CatanUI:
             header_y += header_surface.get_height() + 5
             
             # victory points
-            vp_text = f"VP: {player.victory_points}"
+            vp_text = f"VP: {player.get_victory_points()}"
             vp_surface = self.stats_font.render(vp_text, True, BLACK)
             self.screen.blit(vp_surface, (header_x, header_y))
             header_y += vp_surface.get_height() + 10
