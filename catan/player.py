@@ -112,8 +112,8 @@ class Player:
         return len(self.settlements) + len(self.cities) + \
             self.played_dev_cards.count(DevelopmentCard.VICTORY_POINT) + \
             self.unplayed_dev_cards.count(DevelopmentCard.VICTORY_POINT) + \
-            (1 if self.has_longest_road else 0) + \
-            (1 if self.has_largest_army else 0)
+            (2 if self.has_longest_road else 0) + \
+            (2 if self.has_largest_army else 0)
     
     def get_resources_array(self) -> list[Resource]:
         return [resource for resource, count in self.resources.items() for _ in range(count)]
@@ -193,13 +193,6 @@ class Player:
         self.available_roads -= 1
         if pay_for:
             self.pay_for(ROAD_COST)
-
-        longest_road = self.find_longest_road_size()
-        if longest_road > game.longest_road_length:
-            game.longest_road_length = longest_road
-            if not self.has_longest_road:
-                print("Obtained Longest Road")
-                game.awardLongestRoad(self)
     
     def buy_development_card(self, board: Board):
         if not self.can_afford(DEVELOPMENT_CARD_COST):
@@ -366,7 +359,7 @@ class Player:
         elif isinstance(action, BuildCityAction):
             self.build_city(action.road_vertex, action.pay_for)
         elif isinstance(action, BuildRoadAction):
-            self.build_road(action.road, action.pay_for)
+            self.build_road(action.road, game, action.pay_for)
             self.setup_last_settlement = None
         elif isinstance(action, BuyDevelopmentCardAction):
             self.buy_development_card(board)
@@ -376,11 +369,6 @@ class Player:
             if action.card == DevelopmentCard.KNIGHT:
                 game.move_robber_and_steal(self.index)
                 self.army_size += 1
-                if self.army_size > game.largest_army_size:
-                    game.largest_army_size = self.army_size
-                    if not self.has_largest_army:
-                        print("Obtained Largest Army")
-                        game.awardLargestArmy(self)
             elif action.card == DevelopmentCard.ROAD_BUILDING:
                 self.free_roads_remaining += min(2, self.available_roads)
             elif action.card == DevelopmentCard.YEAR_OF_PLENTY:

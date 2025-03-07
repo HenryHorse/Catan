@@ -252,21 +252,3 @@ class Game:
 
     def human_dice_roll(self):
         self.perform_dice_roll()
-
-    def awardLongestRoad(self, player: Player):
-        for player_ag in self.player_agents:
-            curr_player = player_ag.player
-            if curr_player != player and curr_player.has_longest_road:
-                curr_player.has_longest_road = False
-                curr_player.victory_points -= 2
-        player.has_longest_road = True
-        player.victory_points += 2
-
-    def awardLargestArmy(self, player: Player):
-        for player_ag in self.player_agents:
-            curr_player = player_ag.player
-            if curr_player != player and curr_player.has_largest_army:
-                curr_player.has_largest_army = False
-                curr_player.victory_points -= 2
-        player.has_largest_army = True
-        player.victory_points += 2
