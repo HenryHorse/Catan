@@ -221,8 +221,8 @@ class CatanUI:
             
             header_y += header_surface.get_height() + 5
             
-            # Victory points.
-            vp_text = f"VP: {player.victory_points}"
+            vp_text = f"VP: {player.get_victory_points()}"
+
             vp_surface = self.stats_font.render(vp_text, True, BLACK)
             self.screen.blit(vp_surface, (header_x, header_y))
             header_y += vp_surface.get_height() + 10
@@ -461,6 +461,8 @@ class CatanUI:
                 elif event.type == pygame.KEYDOWN and event.key == pygame.K_c and self.game.winning_player_index is None:
                     print(f'-------- Human Player {self.game.player_turn_index + 1} ends turn {self.game.main_turns_elapsed + 1} --------')
                     self.game.human_dice_rolled = False
+                    self.recompute_longest_road()
+                    self.recompute_largest_army()
                     self.game.advance_player_turn()
         elif event.type == pygame.KEYDOWN and not self.game.has_human:
             if event.key == pygame.K_SPACE and self.game.winning_player_index is None:

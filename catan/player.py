@@ -7,7 +7,7 @@ from catan.board import Board, Resource, RoadVertex, Road, Harbor, DevelopmentCa
 from catan.error import CatanException
 from catan.constants import *
 if TYPE_CHECKING:
-    from catan.game import Game
+    from catan.game import Game, GamePhase
 
 
 @dataclass
@@ -66,6 +66,8 @@ class Player:
 
     # for the road building development card
     free_roads_remaining: int
+    # for the setup phase
+    setup_last_settlement: RoadVertex | None
 
     available_settlements: int
     settlements: list[RoadVertex]
@@ -74,8 +76,8 @@ class Player:
     available_roads: int
     roads: list[Road]
     
-    victory_points: int
     longest_road_size: int
+    longest_road_path: list[Road]
     has_longest_road: bool
     army_size: int
     has_largest_army: bool
@@ -89,8 +91,7 @@ class Player:
         self.played_dev_cards = []
         
         self.free_roads_remaining = 0
-        self.free_resources_remaining = 0
-        self.just_played_monopoly = False
+        self.setup_last_settlement = None
 
         self.available_settlements = 5
         self.settlements = []
@@ -99,13 +100,20 @@ class Player:
         self.available_roads = 15
         self.roads = []
 
-        self.victory_points = 0
         self.longest_road_size = 0
+        self.longest_road_path = []
         self.has_longest_road = False
         self.army_size = 0
         self.has_largest_army = False
 
         self.pending_settlement_for_road = None
+    
+    def get_victory_points(self) -> int:
+        return len(self.settlements) + len(self.cities) + \
+            self.played_dev_cards.count(DevelopmentCard.VICTORY_POINT) + \
+            self.unplayed_dev_cards.count(DevelopmentCard.VICTORY_POINT) + \
+            (1 if self.has_longest_road else 0) + \
+            (1 if self.has_largest_army else 0)
     
     def get_resources_array(self) -> list[Resource]:
         return [resource for resource, count in self.resources.items() for _ in range(count)]
@@ -147,7 +155,6 @@ class Player:
         road_vertex.has_settlement = True
 
         self.available_settlements -= 1
-        self.victory_points += 1
         if pay_for:
             self.pay_for(SETTLEMENT_COST)
 
@@ -169,7 +176,6 @@ class Player:
         road_vertex.has_city = True
 
         self.available_cities -= 1
-        self.victory_points += 1
         if pay_for:
             self.pay_for(CITY_COST)
     
@@ -203,38 +209,35 @@ class Player:
         self.unplayed_dev_cards.append(card)
         self.pay_for(DEVELOPMENT_CARD_COST)
 
-        if card == DevelopmentCard.VICTORY_POINT:
-            self.victory_points += 1
-
     def find_longest_road_size(self) -> int:
-        graph = defaultdict(list)
+        vertices_to_check: set[RoadVertex] = set()
         for road in self.roads:
-            graph[id(road.endpoints[0])].append(road)
-            graph[id(road.endpoints[1])].append(road)
+            for vertex in road.endpoints:
+                vertices_to_check.add(vertex)
 
         max_length = 0
         best_path = []
 
-        def dfs(vertex_id, visited_road_ids, current_length, current_path):
+        def dfs(vertex: RoadVertex, visited_roads: set[Road], current_length: int, current_path: list[Road]):
             nonlocal max_length, best_path
             if current_length > max_length:
                 max_length = current_length
-                best_path = current_path.copy()
+                best_path = current_path.copy() 
+            # Opposing player settlements break up road chains
+            if vertex.owner != self.index and vertex.owner is not None:
+                return
 
-            for road in graph.get(vertex_id, []):
-                # Use id to check if this road was visited
-                if id(road) not in visited_road_ids:
-                    visited_road_ids.add(id(road))
-                    v1_id = id(road.endpoints[0])
-                    v2_id = id(road.endpoints[1])
-                    next_vertex_id = v2_id if vertex_id == v1_id else v1_id
+            for road in vertex.adjacent_roads:
+                if road.owner == self.index and road not in visited_roads:
+                    visited_roads.add(road)
+                    next_vertex = road.endpoints[0] if road.endpoints[0] != vertex else road.endpoints[1]
                     current_path.append(road)
-                    dfs(next_vertex_id, visited_road_ids, current_length + 1, current_path)
+                    dfs(next_vertex, visited_roads, current_length + 1, current_path)
                     current_path.pop()
-                    visited_road_ids.remove(id(road))
+                    visited_roads.remove(road)
 
-        for vertex_id in graph:
-            dfs(vertex_id, set(), 0, [])
+        for vertex in vertices_to_check:
+            dfs(vertex, set(), 0, [])
 
         self.longest_road_size = max_length
         self.longest_road_path = best_path
@@ -272,6 +275,9 @@ class Player:
                     if connected_road.owner == self.index:
                         return True
         return False
+    
+    def get_available_roads_around(self, road_vertex: RoadVertex) -> list[Road]:
+        return [road for road in road_vertex.adjacent_roads if road.owner == None]
     
     def has_harbor(self, harbor_or_resource: Harbor | Resource) -> bool:
         if isinstance(harbor_or_resource, Harbor):
@@ -311,14 +317,13 @@ class Player:
 
     def _get_all_possible_actions_placing(self, board: Board) -> list[Action]:
         actions: list[Action] = []
-        if len(self.settlements) <= len(self.roads):
+        if self.setup_last_settlement is None:
             for road_vertex in board.road_vertices:
                 if self.is_valid_settlement_location(road_vertex, needs_road=False):
                     actions.append(BuildSettlementAction(road_vertex, False))
         else:
-            for road in board.roads:
-                if self.is_valid_road_location(road):
-                    actions.append(BuildRoadAction(road, False))
+            for road in self.get_available_roads_around(self.setup_last_settlement):
+                actions.append(BuildRoadAction(road, False))
         return actions
 
     def _get_all_possible_actions_normal(self, board: Board) -> list[Action]:
@@ -357,10 +362,12 @@ class Player:
             return True
         elif isinstance(action, BuildSettlementAction):
             self.build_settlement(action.road_vertex, action.pay_for)
+            self.setup_last_settlement = action.road_vertex
         elif isinstance(action, BuildCityAction):
             self.build_city(action.road_vertex, action.pay_for)
         elif isinstance(action, BuildRoadAction):
-            self.build_road(action.road, game, action.pay_for)
+            self.build_road(action.road, action.pay_for)
+            self.setup_last_settlement = None
         elif isinstance(action, BuyDevelopmentCardAction):
             self.buy_development_card(board)
         elif isinstance(action, UseDevelopmentCardAction):
