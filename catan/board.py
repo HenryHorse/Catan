@@ -338,3 +338,55 @@ class Board:
             if tile.has_robber:
                 return tile
         return None
+    
+    def get_vertex_at_pos(self, mouse_pos: tuple[float, float],
+                        hexagon_size: float,
+                        displacement: Point,
+                        threshold: float = 5) -> RoadVertex | None:
+        """
+        Return a vertex from the board's road_vertices if the mouse position is within a threshold distance.
+        """
+        for vertex in self.road_vertices:
+            vertex_screen_pos = vertex.get_screen_position(hexagon_size) + displacement
+            if abs(vertex_screen_pos.x - mouse_pos[0]) < threshold and abs(vertex_screen_pos.y - mouse_pos[1]) < threshold:
+                return vertex
+        return None
+
+    def get_road_at_pos(self, mouse_pos: tuple[float, float],
+                        hexagon_size: float,
+                        displacement: Point,
+                        threshold: float = 8) -> Road | None:
+        """
+        Return a road from the board's roads if the mouse position
+        is within a threshold distance of the road segment.
+        """
+        for road in self.roads:
+            v1, v2 = road.endpoints
+            v1_pos = v1.get_screen_position(hexagon_size) + displacement
+            v2_pos = v2.get_screen_position(hexagon_size) + displacement
+            if self.is_point_near_line(mouse_pos, (v1_pos.x, v1_pos.y), (v2_pos.x, v2_pos.y), threshold):
+                return road
+        return None
+    
+    def is_point_near_line(self,
+                       point: tuple[float, float],
+                       line_start: tuple[float, float],
+                       line_end: tuple[float, float],
+                       threshold: float) -> bool:
+        """
+        Determine if the given point is within a threshold distance of a line
+        segment defined by line_start and line_end.
+        """
+        px, py = point
+        x1, y1 = line_start
+        x2, y2 = line_end
+
+        line_length_squared = (x2 - x1) ** 2 + (y2 - y1) ** 2
+        if line_length_squared == 0:
+            return False  # The line is a single point
+
+        t = max(0, min(1, ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / line_length_squared))
+        closest_x = x1 + t * (x2 - x1)
+        closest_y = y1 + t * (y2 - y1)
+
+        return (px - closest_x) ** 2 + (py - closest_y) ** 2 < threshold ** 2

@@ -105,6 +105,8 @@ class Player:
         self.has_longest_road = False
         self.army_size = 0
         self.has_largest_army = False
+
+        self.pending_settlement_for_road = None
     
     def get_victory_points(self) -> int:
         return len(self.settlements) + len(self.cities) + \
@@ -155,6 +157,8 @@ class Player:
         self.available_settlements -= 1
         if pay_for:
             self.pay_for(SETTLEMENT_COST)
+
+        self.pending_settlement_for_road = road_vertex
     
     def build_city(self, road_vertex: RoadVertex, pay_for: bool = True):
         if road_vertex.has_city:
@@ -175,7 +179,7 @@ class Player:
         if pay_for:
             self.pay_for(CITY_COST)
     
-    def build_road(self, road: Road, pay_for: bool = True):
+    def build_road(self, road: Road, game, pay_for: bool = True):
         if road.owner is not None:
             raise CatanException('Road already built here')
         if self.available_roads == 0:
@@ -189,6 +193,13 @@ class Player:
         self.available_roads -= 1
         if pay_for:
             self.pay_for(ROAD_COST)
+
+        longest_road = self.find_longest_road_size()
+        if longest_road > game.longest_road_length:
+            game.longest_road_length = longest_road
+            if not self.has_longest_road:
+                print("Obtained Longest Road")
+                game.awardLongestRoad(self)
     
     def buy_development_card(self, board: Board):
         if not self.can_afford(DEVELOPMENT_CARD_COST):
@@ -211,8 +222,7 @@ class Player:
             nonlocal max_length, best_path
             if current_length > max_length:
                 max_length = current_length
-                best_path = current_path.copy()
-            
+                best_path = current_path.copy() 
             # Opposing player settlements break up road chains
             if vertex.owner != self.index and vertex.owner is not None:
                 return
@@ -246,16 +256,25 @@ class Player:
     def is_valid_city_location(self, road_vertex: RoadVertex) -> bool:
         return road_vertex.has_settlement and not road_vertex.has_city and road_vertex.owner == self.index
 
-    def is_valid_road_location(self, road: Road) -> bool:
+    def is_valid_road_location(self, road: Road, is_setup: bool = False) -> bool:
         if road.owner is not None:
             return False
+
+        if is_setup:
+            if self.pending_settlement_for_road is not None:
+                if self.pending_settlement_for_road in road.endpoints:
+                    return True
+                else:
+                    return False
+
         for road_vertex in road.endpoints:
             if road_vertex.owner == self.index:
                 return True
-            elif road_vertex.owner == None:
+            elif road_vertex.owner is None:
                 for connected_road in road_vertex.adjacent_roads:
                     if connected_road.owner == self.index:
                         return True
+        return False
     
     def get_available_roads_around(self, road_vertex: RoadVertex) -> list[Road]:
         return [road for road in road_vertex.adjacent_roads if road.owner == None]
@@ -357,6 +376,11 @@ class Player:
             if action.card == DevelopmentCard.KNIGHT:
                 game.move_robber_and_steal(self.index)
                 self.army_size += 1
+                if self.army_size > game.largest_army_size:
+                    game.largest_army_size = self.army_size
+                    if not self.has_largest_army:
+                        print("Obtained Largest Army")
+                        game.awardLargestArmy(self)
             elif action.card == DevelopmentCard.ROAD_BUILDING:
                 self.free_roads_remaining += min(2, self.available_roads)
             elif action.card == DevelopmentCard.YEAR_OF_PLENTY:
