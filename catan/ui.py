@@ -199,9 +199,10 @@ class CatanUI:
             if event.key == pygame.K_SPACE and self.game.winning_player_index is None:
                 print(f'-------- Player {self.game.player_turn_index + 1} takes turn {self.game.main_turns_elapsed + 1} --------')
                 self.game.do_full_turn()
-                self.serialization.encode_player_states(self.game, self.game.player_agents[0])
-                print("Player States (Playr 1) :", self.serialization.player_states)
-                print("Player 1 Board State: ", self.serialization.board[0])
+                self.serialization.encode_player_states(self.game, self.game.player_agents[1])
+                print("Player States (Playr 2) :", self.serialization.player_states)
+                self.serialization.recursive_serialize(self.game, self.game.board.center_tile, None, None)
+                print("Player 2 Board State: ", self.serialization.board[1])
                 if self.game.winning_player_index is not None:
                     print(f"Player {self.game.winning_player_index + 1} wins!")
             elif event.key == pygame.K_x:

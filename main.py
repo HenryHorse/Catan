@@ -36,12 +36,12 @@ def create_game(serialization) -> Game:
         PlayerAgent(player_4, agent_4)])
 
 def main():
-   serialization = BrickRepresentation(5, 4)  
+   serialization = BrickRepresentation(5, 4, None, 1)  
    game = create_game(serialization)  
-   serialization.recursive_serialize(game, game.board.center_tile, None, None)
-   print("Testing Serialization:", serialization.board)
+   serialization.game = game
+   serialization.recursive_serialize(game, game.board.center_tile, None, None, False, [])
    #serialization.recursive_serialize(game, game.board.center_tile)  
-   #print(serialization.board[-1])  
+   print(serialization.board[-1])  
 
    catan_ui = CatanUI(lambda: game, serialization=serialization) # Pass serialization into catan_ui for testing
    catan_ui.open_and_loop()

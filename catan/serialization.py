@@ -6,19 +6,6 @@ from catan.player import Player, EndTurnAction, BuildSettlementAction, BuildCity
 
 BOARD_SIZE = 5
 
-RESOURCE_MAP = {
-    None: 0,
-    Resource.WOOD: 1,
-    Resource.GRAIN: 2,
-    Resource.SHEEP: 3,
-    Resource.ORE: 4,
-    Resource.BRICK: 5,
-}
-
-HARBOR_MAP = {
-    None: 0, '3:1 any': 1, '2:1 ore': 2, '2:1 wood': 3, '2:1 brick': 4, '2:1 grain': 5, '2:1 sheep': 6
-}
-
 BRICK_TILE_DISPLACEMENTS = [(2, 2), (4, 0), (2, -2), (-2, -2), (-4, 0), (-2, 2)]
 BRICK_ROAD_VERTEX_DISPLACEMENTS = [(0, 1), (2, 1), (2, -1), (0, -1), (-2, -1), (-2, 1)]
 BRICK_ROAD_DISPLACEMENTS = [(1, 1), (2, 0), (1, -1), (-1, -1), (-2, 0), (-1, 1)]
@@ -32,55 +19,73 @@ class BrickRepresentation:
     height: int
     board: list[list[list[int]]]
 
-    def __init__(self, size: int, num_players: int):
+    def __init__(self, size: int, num_players: int, game: Game, agent_player_num: int):
         self.size = size
         self.width = 4 * size + 1
         self.height = 2 * size + 1
         self.num_players = num_players
+        self.game = game
+        self.agent_player_num = agent_player_num
         self.board = [[[0 for _ in range(self.width)] for _ in range(self.height)] for _ in range(num_players + 1)]
         self.player_states = [
-            [0] * 12, # Actions for current player (Fix Later) 7 + 5 + 5 * (Board Brick Size)
-            *[[[0] * 13 for _ in range(num_players)]], # Resources for each player (Wood, Grain, Sheep, Ore, Brick) + 
+            [0, 0, [[0 for _ in range(self.width)] for _ in range(self.height)], 0, [[0 for _ in range(self.width)] for _ in range(self.height)],
+            0, [[0 for _ in range(self.width)] for _ in range(self.height)], 0, 0, [[0 for _ in range(self.width)] for _ in range(self.height)],
+            0, [0, 0, 0, 0, 0], [[0 for _ in range(self.width)] for _ in range(self.height)]], # Actions for current player 
+            *[[[0] * 13 for _ in range(self.num_players)]], # Resources for each player (Wood, Grain, Sheep, Ore, Brick) + 
                                                     # Rem Roads + Rem Cit + Rem Sett + Vict Points + If Long Road + Length Long Road + If Larg Arm + Size Arm
             [0] * 5 # Array of dev cards of player at given time
         ]
+
+    def reinitialize(self):
+        self.player_states = self.player_states = [
+            [0, 0, [[0 for _ in range(self.width)] for _ in range(self.height)], 0, [[0 for _ in range(self.width)] for _ in range(self.height)],
+            0, [[0 for _ in range(self.width)] for _ in range(self.height)], 0, 0, [[0 for _ in range(self.width)] for _ in range(self.height)],
+            0, [0, 0, 0, 0, 0], [[0 for _ in range(self.width)] for _ in range(self.height)]], 
+            *[[[0] * 13 for _ in range(self.num_players)]], 
+            [0] * 5]
         
+    def recursive_serialize_for_player_states(
+            self,
+            game: Game,
+            center_tile: Tile | None = None,
+            center: tuple[int, int] | None = None,
+            visited: set[tuple[int, int]] | None = None):
+
+        if self.player_states[0][1] == 1:
+            self.recursive_serialize()
 
     def to_1d(self):
         return [cell for row in self.board for cell in row]
     
     def encode_player_states(self, game: Game, given_player: PlayerAgent):
         # Get action space for player (reset to all 0s first for every turn)
-
-        self.player_states = [
-            [0] * (7 + 5),  # Actions for the current player
-            *[[[0] * 13 for _ in range(self.num_players)]],  # Resources for each player
-            [0] * 5  # Development cards of the current player
-        ]   
+        self.reinitialize()
 
         actions = given_player.player._get_all_possible_actions_normal(game.board)
+        print(actions)
         for act in actions:
-            if isinstance(act, EndTurnAction):
+            if isinstance(act, EndTurnAction): # Just 0/1
                 self.player_states[0][0] = 1
-            elif isinstance(act, BuildSettlementAction):
+            elif isinstance(act, BuildSettlementAction): # 0/1 and whole map copy
                 self.player_states[0][1] = 1
-            elif isinstance(act, BuildCityAction):
-                self.player_states[0][2] = 1
-            elif isinstance(act, BuildRoadAction):
+            elif isinstance(act, BuildCityAction): # 0/1 and whole map copy
                 self.player_states[0][3] = 1
-            elif isinstance(act, BuyDevelopmentCardAction):
-                self.player_states[0][4] = 1
-            elif isinstance(act, UseDevelopmentCardAction):
+            elif isinstance(act, BuildRoadAction): # 0/1 and whole map copy
                 self.player_states[0][5] = 1
-            elif isinstance(act, TradeAction):
+            elif isinstance(act, BuyDevelopmentCardAction): # Just 0/1
                 self.player_states[0][6] = 1
-                # Only encode 4:1 trades
+            elif isinstance(act, UseDevelopmentCardAction):
+                self.player_states[0][7] = 1
+            elif isinstance(act, TradeAction):
+                self.player_states[0][7] = 1
+                # Only encode 4:1 trades (I could be wrong on this)
                 for resource in act.giving:
                     if act.giving.count(resource) == 4:  # Only consider 4:1 trades
-                        resource_index = resource.value  # Get the enum index of the resource (order is )
+                        resource_index = resource.value  # Get the enum index of the resource 
                         self.player_states[0][7 + resource_index] = 1  # Mark that a 4:1 trade is possible
-                #TODO: Add all possible road/settlement/city/knight options dependent on player
-        # Get all info for each indiv player
+        
+        self.recursive_serialize(self.game, self.game.board.center_tile, None, None, True, actions)
+
         player_index = 0
         for player in game.player_agents:
             self.player_states[1][player_index][0] = player.player.resources[Resource.WOOD]
@@ -110,20 +115,22 @@ class BrickRepresentation:
             game: Game,
             center_tile: Tile | None = None,
             center: tuple[int, int] | None = None,
-            visited: set[tuple[int, int]] | None = None):
+            visited: set[tuple[int, int]] | None = None,
+            action_flag: bool = False,
+            actions: list = []):
         center_tile = center_tile or game.board.center_tile
         center = center or (2 * self.size, self.size)
         visited = visited or set()
         if center in visited: return
         visited.add(center)
 
-        self.serialize_tile(game, center_tile, center)
+        self.serialize_tile(game, center_tile, center, action_flag, actions)
         for i, neighbor in enumerate(center_tile.adjacent_tiles):
             if neighbor is None: continue
             dx, dy = BRICK_TILE_DISPLACEMENTS[i]
-            self.recursive_serialize(game, neighbor, (center[0] + dx, center[1] + dy), visited)
+            self.recursive_serialize(game, neighbor, (center[0] + dx, center[1] + dy), visited, action_flag, actions)
     
-    def serialize_tile(self, game: Game, tile: Tile, center: tuple[int, int]):
+    def serialize_tile(self, game: Game, tile: Tile, center: tuple[int, int], action_flag: bool, actions):
         x, y = center
         
         # Last channel for board state
@@ -138,25 +145,37 @@ class BrickRepresentation:
         for i, road_vertex in enumerate(tile.adjacent_road_vertices):
             if road_vertex is None: continue
             dx, dy = BRICK_ROAD_VERTEX_DISPLACEMENTS[i]
-            self.serialize_road_vertex(game, road_vertex, (x + dx, y + dy))
+            self.serialize_road_vertex(game, road_vertex, (x + dx, y + dy), action_flag, actions)
 
             # stores harbor info
             harbor_value = 0
             if (road_vertex.harbor != None):
                 harbor_value = road_vertex.harbor.value + 1
                 self.board[-1][y+dy][x+dx] = harbor_value 
+                if (action_flag and road_vertex.owner == self.agent_player_num):
+                    self.player_states[0][9][y+dy][x+dx] = harbor_value
         
         for i, road in enumerate(tile.adjacent_roads):
             if road is None: continue
             dx, dy = BRICK_ROAD_DISPLACEMENTS[i]
-            self.serialize_road(game, road, (x + dx, y + dy))
+            self.serialize_road(game, road, (x + dx, y + dy), action_flag, actions)
     
-    def serialize_road_vertex(self, game: Game, intersection: RoadVertex, position: tuple[int, int]):
+    def serialize_road_vertex(self, game: Game, intersection: RoadVertex, position: tuple[int, int], action_flag: bool, actions):
         x, y = position
         if intersection.owner is not None:
             self.board[intersection.owner][y][x] = 2 if intersection.has_city else 1
+        if action_flag:
+            for action in actions:
+                if isinstance(action, BuildCityAction) and action.road_vertex == intersection:
+                    self.player_states[0][4][y][x] = 1
+                elif isinstance(action, BuildSettlementAction) and action.road_vertex == intersection:
+                    self.player_states[0][2][y][x] = 1            
     
-    def serialize_road(self, game: Game, road: Road, position: tuple[int, int]):
+    def serialize_road(self, game: Game, road: Road, position: tuple[int, int], action_flag, actions):
         x, y = position
         if road.owner is not None:
             self.board[road.owner][y][x] = 1
+        if action_flag:
+            for action in actions:
+                if isinstance(action, BuildRoadAction) and action.road == road:
+                    self.player_states[0][6][y][x] = 1
