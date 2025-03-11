@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING
 import random
 
-from catan.board import Board, Resource, RoadVertex, Road
+from catan.board import Board, Resource, RoadVertex, Road, DevelopmentCard
 from catan.player import Player, Action, BuildSettlementAction, BuildCityAction, BuildRoadAction, \
     BuyDevelopmentCardAction, TradeAction, UseDevelopmentCardAction, EndTurnAction
 from catan.util import CubeCoordinates
@@ -20,31 +20,26 @@ class HeuristicAgent(Agent):
     def get_action(self, game: 'Game', possible_actions: list[Action]) -> Action:
         # The logic is straightforward: prioritize certain types of actions first, try others next. If it can't do anything, just end the turn
         # You can try swapping the order of the isinstance statements to see if one performs better than the other (i.e. prioritizing using dev cards early on)
-        best_settlement_action = None
-        best_settlement_score = -1
+        best_action = None
+        best_score = -1
         for action in possible_actions:
+            score = -1
             if isinstance(action, BuildSettlementAction):
-                settlement_score = self.evaluate_settlement_location(action.road_vertex, game)
-                if settlement_score > best_settlement_score:
-                    best_settlement_action = action
-                    best_settlement_score = settlement_score
-        if best_settlement_action:
-            return best_settlement_action
-
-        for action in possible_actions:
+                score = self.evaluate_settlement_location(action.road_vertex, game)
             if isinstance(action, BuildCityAction):
-                return action
-
-        best_road_action = None
-        best_road_score = -1
-        for action in possible_actions:
+                score = self.evaluate_city_location(action.road_vertex, game)
             if isinstance(action, BuildRoadAction):
-                road_score = self.evaluate_road_location(action.road, game)
-                if road_score > best_road_score:
-                    best_road_action = action
-                    best_road_score = road_score
-        if best_road_action:
-            return best_road_action
+                score = self.evaluate_road_location(action.road, game)
+            if isinstance(action, TradeAction):
+                score = self.evaluate_trade(action, game)
+            if isinstance(action, UseDevelopmentCardAction):
+                score = self.evaluate_dev_card(action.card, game)
+            if score > best_score:
+                best_action = action
+                best_score = score
+        if best_action:
+            return best_action
+
 
         # TODO Think of a heuristic for this
         for action in possible_actions:
@@ -55,11 +50,6 @@ class HeuristicAgent(Agent):
             if isinstance(action, BuyDevelopmentCardAction):
                 return action
 
-
-        # TODO Evaluate TradeAction by looking for most needed resource
-        for action in possible_actions:
-            if isinstance(action, TradeAction):
-                return action
 
         return EndTurnAction()
 
@@ -91,7 +81,7 @@ class HeuristicAgent(Agent):
 
         for tile in road_vertex.adjacent_tiles:
             if tile and tile.resource:
-                score += dice_probability[tile.number]
+                score += 2 * dice_probability[tile.number]
                 resource_types.add(tile.resource)
 
         # the more resource types there are adjacent to this road_vertex, the bigger the score
@@ -106,6 +96,29 @@ class HeuristicAgent(Agent):
         for vertex in road.endpoints:
             if current_player.is_valid_settlement_location(vertex):
                 score += self.evaluate_settlement_location(vertex, game)
+        return score
+
+    def evaluate_trade(self, trade_action: TradeAction, game: 'Game') -> int:
+        score = 0
+        most_needed_resource = self.get_most_needed_resource(game)
+        if most_needed_resource in trade_action.receiving:
+            score += 10 # Reward for getting a required resource
+            for resource in trade_action.giving:
+                if self.player.resources[resource] == 1:
+                    score -= 10 # Punishment for giving up a resource player only has 1 of
+        return score
+
+    def evaluate_dev_card(self, dev_card: DevelopmentCard, game: 'Game') -> int:
+        score = 0
+        match dev_card:
+            case dev_card.KNIGHT:
+                score += 3
+            case dev_card.ROAD_BUILDING:
+                score += 10
+            case dev_card.YEAR_OF_PLENTY:
+                score += 10
+            case dev_card.MONOPOLY:
+                score += 10
         return score
 
     def get_most_needed_resource(self, game: 'Game') -> Resource:

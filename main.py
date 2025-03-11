@@ -23,11 +23,11 @@ def create_game() -> Game:
     agent_1 = HeuristicAgent(board, player_1)
     # agent_1 = RandomAgent(board, player_1)
     player_2 = Player(1, (0, 0, 255))
-    agent_2 = RandomAgent(board, player_2)
+    agent_2 = HeuristicAgent(board, player_2)
     player_3 = Player(2, (255, 255, 255))
-    agent_3 = RandomAgent(board, player_3)
+    agent_3 = HeuristicAgent(board, player_3)
     player_4 = Player(3, (255, 102, 0))
-    agent_4 = RandomAgent(board, player_4)
+    agent_4 = HeuristicAgent(board, player_4)
 
     return Game(board, [
         PlayerAgent(player_1, agent_1),
