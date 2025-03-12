@@ -73,9 +73,9 @@ class BrickRepresentation:
             elif isinstance(act, BuildRoadAction): # 0/1 and whole map copy
                 self.player_states[0][5] = 1
             elif isinstance(act, BuyDevelopmentCardAction): # Just 0/1
-                self.player_states[0][6] = 1
-            elif isinstance(act, UseDevelopmentCardAction):
                 self.player_states[0][7] = 1
+            elif isinstance(act, UseDevelopmentCardAction):
+                self.player_states[0][8] = 1
             elif isinstance(act, TradeAction):
                 self.player_states[0][10] = 1
                 # Only encode 4:1 trades (I could be wrong on this)
