@@ -77,12 +77,12 @@ class BrickRepresentation:
             elif isinstance(act, UseDevelopmentCardAction):
                 self.player_states[0][7] = 1
             elif isinstance(act, TradeAction):
-                self.player_states[0][7] = 1
+                self.player_states[0][10] = 1
                 # Only encode 4:1 trades (I could be wrong on this)
                 for resource in act.giving:
                     if act.giving.count(resource) == 4:  # Only consider 4:1 trades
                         resource_index = resource.value  # Get the enum index of the resource 
-                        self.player_states[0][7 + resource_index] = 1  # Mark that a 4:1 trade is possible
+                        self.player_states[0][11][resource_index] = 1  # Mark that a 4:1 trade is possible
         
         self.recursive_serialize(self.game, self.game.board.center_tile, None, None, True, actions)
 
@@ -153,7 +153,7 @@ class BrickRepresentation:
                 harbor_value = road_vertex.harbor.value + 1
                 self.board[-1][y+dy][x+dx] = harbor_value 
                 if (action_flag and road_vertex.owner == self.agent_player_num):
-                    self.player_states[0][9][y+dy][x+dx] = harbor_value
+                    self.player_states[0][12][y+dy][x+dx] = harbor_value
         
         for i, road in enumerate(tile.adjacent_roads):
             if road is None: continue
