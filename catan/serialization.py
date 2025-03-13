@@ -67,12 +67,12 @@ class BrickRepresentation:
     def to_1d(self):
         return [cell for row in self.board for cell in row]
     
-    def encode_player_states(self, game: Game, given_player: PlayerAgent):
+    def encode_player_states(self, game: Game, given_player: Player):
         # Reset the board and player states
         self.reinitialize()
 
         # Get action space for player
-        actions = given_player.player._get_all_possible_actions_normal(game.board)
+        actions = given_player._get_all_possible_actions_normal(game.board)
         print(f"Possible actions: {actions}")
 
         # Encode actions into player_states
@@ -117,7 +117,7 @@ class BrickRepresentation:
             self.player_states[1][player_index][12] = player.player.army_size
             player_index += 1
         # Given player's current Dev Cards
-        for dev_card in given_player.player.unplayed_dev_cards:
+        for dev_card in given_player.unplayed_dev_cards:
             self.player_states[2][dev_card.value] += 1
 
         self.player_states = self.flatten_nested_list(self.player_states)
