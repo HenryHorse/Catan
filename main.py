@@ -3,6 +3,8 @@ import argparse
 from catan.board import Board
 from catan.player import Player
 from catan.agent.random import RandomAgent
+from catan.agent.rl_agent import RL_Agent
+
 from catan.game import Game, PlayerAgent
 from catan.ui import CatanUI
 from catan.serialization import BrickRepresentation
@@ -19,13 +21,13 @@ def create_game(serialization) -> Game:
     board = Board(3)
 
     player_1 = Player(0, (255, 0, 0))
-    agent_1 = RandomAgent(board, player_1)
+    agent_1 = RandomAgent(board, player_1, 1)
     player_2 = Player(1, (0, 0, 255))
-    agent_2 = RandomAgent(board, player_2)
+    agent_2 = RandomAgent(board, player_2, 2)
     player_3 = Player(2, (255, 255, 255))
-    agent_3 = RandomAgent(board, player_3)
-    player_4 = Player(3, (255, 102, 0))
-    agent_4 = RandomAgent(board, player_4)
+    agent_3 = RandomAgent(board, player_3, 3)
+    player_4 = Player(3, (255, 102, 0)) 
+    agent_4 = RL_Agent(board, player_4, 4)
 
 
 

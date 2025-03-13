@@ -10,9 +10,10 @@ class Agent:
     board: Board
     player: Player
 
-    def __init__(self, board: Board, player: Player):
+    def __init__(self, board: Board, player: Player, player_number: int):
         self.board = board
         self.player = player
+        self.player_number = player_number
 
     # returns index of chosen action out of all possible player actions
     def get_action(self, game: 'Game', possible_actions: list[Action]) -> Action:
