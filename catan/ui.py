@@ -2,16 +2,23 @@ from collections import Counter
 from typing import Callable
 
 import pygame
+import numpy as np
+import torch
 
 from catan.game import Game
 from catan.util import Point
 from catan.constants import *
 from catan.serialization import BrickRepresentation
+from catan.agent.rl_agent import RLAgent
+from catan.player import Player
+
 
 class CatanUI:
     game: Game | None
     game_generator: Callable[[], Game]
     screen: pygame.Surface | None
+    rl_agent: RLAgent | None
+    model_path: str | None
 
     screen_width: int
     screen_height: int
@@ -27,17 +34,15 @@ class CatanUI:
     stats_title_font: pygame.font.Font
     stats_font: pygame.font.Font
 
-    def __init__(self, game_generator: Callable[[], Game], serialization: BrickRepresentation):
+    def __init__(self, game_generator: Callable[[], Game], serialization: BrickRepresentation, rl_agent: RLAgent = None, model_path: str = None):
         self.game = None
         self.game_generator = game_generator
         self.screen = None
         self.serialization = serialization
+        self.rl_agent = rl_agent
+        self.model_path = model_path
 
-    def draw_tile(
-            self,
-            fill_color: tuple[int, int, int],
-            outline_color: tuple[int, int, int],
-            vertices: list[Point]):
+    def draw_tile(self, fill_color: tuple[int, int, int], outline_color: tuple[int, int, int], vertices: list[Point]):
         number_pairs = [point.to_int_tuple() for point in vertices]
         pygame.draw.polygon(self.screen, fill_color, number_pairs)
         pygame.draw.polygon(self.screen, outline_color, number_pairs, 2)
@@ -203,13 +208,37 @@ class CatanUI:
                 print("Player States (Playr 2) :", self.serialization.player_states)
                 self.serialization.recursive_serialize(self.game, self.game.board.center_tile, None, None)
                 print("Player 2 Board State: ", self.serialization.board[1])
+
+                # Store experience and train RL agent
+                if self.rl_agent:
+                    state = self.serialization.board, self.serialization.player_states
+                    action = self.game.player_agents[3].agent.get_action(self.game, self.game.player_agents[3].player, self.game.get_possible_actions())
+                    reward = self.calculate_reward(self.game.player_agents[3].player)
+                    next_state = self.serialization.board, self.serialization.player_states
+                    done = self.game.winning_player_index is not None
+
+                    self.rl_agent.store_experience(state, action, reward, next_state, done)
+                    self.rl_agent.train()
+
                 if self.game.winning_player_index is not None:
                     print(f"Player {self.game.winning_player_index + 1} wins!")
+                    # Save the model after each game
+                    if self.rl_agent and self.model_path:
+                        torch.save(self.rl_agent.model.state_dict(), self.model_path)
+                        print(f"Model saved to {self.model_path}")
             elif event.key == pygame.K_x:
                 while self.game.winning_player_index is None:
                     print(f'-------- Player {self.game.player_turn_index + 1} takes turn {self.game.main_turns_elapsed + 1} --------')
                     self.game.do_full_turn()
                 print(f"Player {self.game.winning_player_index + 1} wins!")
+
+
+    def calculate_reward(self, player: Player) -> float:
+        """Calculate reward based on player's progress."""
+        reward = 0
+        reward += player.get_victory_points() * 10  # Reward for victory points
+        reward += sum(player.resources.values()) * 0.1  # Reward for resources
+        return reward
 
     def calculate_sizes(self):
         info = pygame.display.Info()
