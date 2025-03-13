@@ -212,7 +212,7 @@ class CatanUI:
                 # Store experience and train RL agent
                 if self.rl_agent:
                     state = self.serialization.board, self.serialization.player_states
-                    action = self.game.player_agents[3].agent.get_action(self.game, self.game.player_agents[3].player, self.game.get_possible_actions())
+                    action = self.game.player_agents[3].agent.get_action(self.game, self.game.player_agents[3].player, self.game.player_agents[3].player.get_all_possible_actions())
                     reward = self.calculate_reward(self.game.player_agents[3].player)
                     next_state = self.serialization.board, self.serialization.player_states
                     done = self.game.winning_player_index is not None
