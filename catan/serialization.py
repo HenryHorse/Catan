@@ -121,42 +121,53 @@ class BrickRepresentation:
         center_tile = center_tile or game.board.center_tile
         center = center or (2 * self.size, self.size)
         visited = visited or set()
-        if center in visited: return
+        if center in visited:
+            return
         visited.add(center)
 
+        print(f"Serializing tile at center: {center}")
         self.serialize_tile(game, center_tile, center, action_flag, actions)
         for i, neighbor in enumerate(center_tile.adjacent_tiles):
-            if neighbor is None: continue
+            if neighbor is None:
+                continue
             dx, dy = BRICK_TILE_DISPLACEMENTS[i]
             self.recursive_serialize(game, neighbor, (center[0] + dx, center[1] + dy), visited, action_flag, actions)
     
     def serialize_tile(self, game: Game, tile: Tile, center: tuple[int, int], action_flag: bool, actions):
         x, y = center
-        
+
+        # Validate coordinates
+        if not (0 <= x < self.width and 0 <= y < self.height):
+            print(f"Warning: Invalid coordinates (x={x}, y={y}) for board of size {self.width}x{self.height}")
+            return
+
         # Last channel for board state
         self.board[-1][y][x] = tile.number
         # Must be desert
-        if (tile.resource == None):
+        if tile.resource is None:
             self.board[-1][y][x - 1] = 0
         else:
             self.board[-1][y][x - 1] = tile.resource.value + 1
         self.board[-1][y][x + 1] = 1 if tile.has_robber else 0
 
+        # Serialize road vertices and roads
         for i, road_vertex in enumerate(tile.adjacent_road_vertices):
-            if road_vertex is None: continue
+            if road_vertex is None:
+                continue
             dx, dy = BRICK_ROAD_VERTEX_DISPLACEMENTS[i]
             self.serialize_road_vertex(game, road_vertex, (x + dx, y + dy), action_flag, actions)
 
-            # stores harbor info
+            # Store harbor info
             harbor_value = 0
-            if (road_vertex.harbor != None):
+            if road_vertex.harbor is not None:
                 harbor_value = road_vertex.harbor.value + 1
-                self.board[-1][y+dy][x+dx] = harbor_value 
-                if (action_flag and road_vertex.owner == self.agent_player_num):
-                    self.player_states[0][12][y+dy][x+dx] = harbor_value
-        
+                self.board[-1][y + dy][x + dx] = harbor_value
+                if action_flag and road_vertex.owner == self.agent_player_num:
+                    self.player_states[0][12][y + dy][x + dx] = harbor_value
+
         for i, road in enumerate(tile.adjacent_roads):
-            if road is None: continue
+            if road is None:
+                continue
             dx, dy = BRICK_ROAD_DISPLACEMENTS[i]
             self.serialize_road(game, road, (x + dx, y + dy), action_flag, actions)
     
