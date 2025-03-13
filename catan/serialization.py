@@ -36,6 +36,16 @@ class BrickRepresentation:
             [0] * 5 # Array of dev cards of player at given time
         ]
 
+    def flatten_nested_list(self, nested_list):
+        """Recursively flatten a nested list into a 1D list."""
+        flat_list = []
+        for item in nested_list:
+            if isinstance(item, list):
+                flat_list.extend(self.flatten_nested_list(item))
+            else:
+                flat_list.append(item)
+        return flat_list
+    
     def reinitialize(self):
         self.player_states = self.player_states = [
             [0, 0, [[0 for _ in range(self.width)] for _ in range(self.height)], 0, [[0 for _ in range(self.width)] for _ in range(self.height)],
@@ -109,7 +119,10 @@ class BrickRepresentation:
         # Given player's current Dev Cards
         for dev_card in given_player.player.unplayed_dev_cards:
             self.player_states[2][dev_card.value] += 1
-    
+
+        self.player_states = self.flatten_nested_list(self.player_states)
+
+        
     # Last channel in the matrix
     def board_state(self):
         return self.board[-1]

@@ -216,12 +216,7 @@ class CatanUI:
                     board_state = torch.tensor(self.serialization.board, dtype=torch.float32)
 
                     # Flatten player_states and convert to tensor
-                    player_state = []
-                    for layer in self.serialization.player_states:
-                        if isinstance(layer, list):
-                            player_state.extend(layer)
-                        else:
-                            player_state.append(layer)
+                    player_state = self.serialization.flatten_nested_list(self.serialization.player_states)
                     player_state = torch.tensor(player_state, dtype=torch.float32)
 
                     state = (board_state, player_state)
