@@ -1,16 +1,18 @@
 from collections import Counter
 from typing import Callable
-
 import pygame
+import math
 
 from catan.agent.random import RandomAgent
 from catan.agent.human import HumanAgent
-
 from catan.board import DevelopmentCard, Harbor, RoadVertex
 from catan.game import Game
 from catan.util import Point
 from catan.constants import *
 from catan.game import GamePhase
+
+# List of resources in fixed order for modal overlays.
+RESOURCE_ORDER = [Resource.WOOD, Resource.GRAIN, Resource.SHEEP, Resource.ORE, Resource.BRICK]
 
 class CatanUI:
     game: Game | None
@@ -40,30 +42,28 @@ class CatanUI:
 
         self.trade_resource_out = None
         self.trade_resource_in = None
-        self.trade_ratio = 4 # default 4
+        self.trade_ratio = 4  # default 4
 
         self.human_setup_settlement_placed = False
         self.human_setup_road_placed = False
 
+        # NEW: Pending development card action state.
+        # It can be one of: "KNIGHT", "KNIGHT_STEAL", "ROAD_BUILDER", "MONOPOLY", "YEAR_OF_PLENTY"
+        self.pending_dev_action = None
+        self.pending_dev_data = {}
+
     def attempt_trade(self):
-        # Get the current human player (assuming there's one)
         human_pa = next(pa for pa in self.game.player_agents if isinstance(pa.agent, HumanAgent))
         player = human_pa.player
 
-        # Make sure all trade selections are made.
         if self.trade_resource_in is None or self.trade_resource_out is None:
             print("Trade selection incomplete!")
             return
 
-        # Check if the player has enough resources.
         if player.resources[self.trade_resource_in] < self.trade_ratio:
             print("Not enough resources to trade!")
             return
 
-        # Check harbor requirements:
-        # 4:1 is always allowed.
-        # 3:1 requires a generic 3:1 harbor.
-        # 2:1 requires a specific harbor.
         if self.trade_ratio == 2:
             if not player.has_harbor(self.trade_resource_in):
                 print("You do not have the required 2:1 harbor for that resource!")
@@ -73,28 +73,21 @@ class CatanUI:
                 print("You do not have a 3:1 harbor!")
                 return
 
-        # Perform the trade:
         player.resources[self.trade_resource_in] -= self.trade_ratio
         player.resources[self.trade_resource_out] += 1
         print(f"Traded {self.trade_ratio} {self.trade_resource_in} for 1 {self.trade_resource_out}.")
 
-        # Reset trade selections.
         self.trade_resource_in = None
         self.trade_resource_out = None
         self.trade_ratio = 4
 
-    def draw_tile(
-            self,
-            fill_color: tuple[int, int, int],
-            outline_color: tuple[int, int, int],
-            vertices: list[Point]):
+    def draw_tile(self, fill_color: tuple[int, int, int], outline_color: tuple[int, int, int], vertices: list[Point]):
         number_pairs = [point.to_int_tuple() for point in vertices]
         pygame.draw.polygon(self.screen, fill_color, number_pairs)
         pygame.draw.polygon(self.screen, outline_color, number_pairs, 2)
 
     def draw_grid(self, hover_vertex, hover_road):
         self.screen.fill(BACKGROUND_COLOR)
-
         if self.screen is None or self.game is None:
             return
 
@@ -127,11 +120,9 @@ class CatanUI:
 
         for road in self.game.board.roads:
             v1, v2 = road.endpoints
-            # Compute the screen positions for each endpoint, including the displacement offset.
             v1_screen = v1.get_screen_position(self.hexagon_size) + self.displacement
             v2_screen = v2.get_screen_position(self.hexagon_size) + self.displacement
 
-            # Determine if this road is hovered.
             is_hovered = hover_road and v1 == hover_road.endpoints[0] and v2 == hover_road.endpoints[1]
             road_thickness = 5 if is_hovered else 2
 
@@ -144,7 +135,7 @@ class CatanUI:
     def draw_players(self):
         if self.screen is None or self.game is None:
             return
-        
+
         for player_agent in self.game.player_agents:
             player = player_agent.player
             for settlement in player.settlements:
@@ -157,61 +148,44 @@ class CatanUI:
                 start_pos = road.endpoints[0].get_screen_position(self.hexagon_size) + self.displacement
                 end_pos = road.endpoints[1].get_screen_position(self.hexagon_size) + self.displacement
                 pygame.draw.line(self.screen, player.color, start_pos.to_int_tuple(), end_pos.to_int_tuple(), 3)
-                
 
     def draw_robber(self):
         if self.screen is None or self.game is None:
             return
-        
         if (robber_tile := self.game.board.get_robber_tile()) is not None:
             pos = robber_tile.get_screen_position(self.hexagon_size) + self.displacement
             pygame.draw.circle(self.screen, BROWN, pos.to_int_tuple(), 12)
 
-
     def draw_turn_info(self):
-        """Draw turn number and current player's turn in the top left of the board area."""
         if self.screen is None or self.game is None:
             return
-        
         info_text = f"Turn {self.game.main_turns_elapsed + 1} - Player {self.game.player_turn_index + 1}'s Turn"
         info_surface = self.stats_title_font.render(info_text, True, BLACK)
         self.screen.blit(info_surface, (10, 10))
 
     def draw_player_stats(self, stats_rect: pygame.Rect):
-        """Draw each player's stats in the right-side stats area with resources on the left
-        and dev cards on the right. For a human player, also draw the trade panel in the right half.
-        Also, show Longest Road and Largest Army statuses next to the title."""
         if self.screen is None or self.game is None:
             return
-        
-        # Draw the stats area background.
+
         pygame.draw.rect(self.screen, STATS_BG_COLOR, stats_rect)
-        
         num_players = len(self.game.player_agents)
         panel_height = self.stats_area_height // num_players
         panel_padding = 5
 
-        # Loop over players with index so we can check the agent type.
         for idx, pa in enumerate(self.game.player_agents):
             player = pa.player
-            # Compute this player's panel rectangle.
             panel_x = stats_rect.left
             panel_y = idx * panel_height
             panel_rect = pygame.Rect(panel_x, panel_y, stats_rect.width, panel_height)
-            
-            # Draw the panel border.
             pygame.draw.rect(self.screen, player.color, panel_rect, 2)
-            
-            # Set starting coordinates inside the panel.
+
             header_x = panel_x + panel_padding
             header_y = panel_y + panel_padding
-            
-            # Player header.
+
             header_text = f"Player {idx + 1}"
             header_surface = self.stats_title_font.render(header_text, True, player.color)
             self.screen.blit(header_surface, (header_x, header_y))
-            
-            # Draw Longest Road and Largest Army statuses.
+
             lr_has = player.has_longest_road
             la_has = player.has_largest_army
             lr_color = GREEN if lr_has else RED
@@ -221,22 +195,19 @@ class CatanUI:
             self.screen.blit(lr_surface, (status_x, header_y))
             la_surface = self.stats_font.render("Largest Army", True, la_color)
             self.screen.blit(la_surface, (status_x, header_y + 20))
-            
-            header_y += header_surface.get_height() + 5
-            
-            vp_text = f"VP: {player.get_victory_points()}"
 
+            header_y += header_surface.get_height() + 5
+
+            vp_text = f"VP: {player.get_victory_points()}"
             vp_surface = self.stats_font.render(vp_text, True, BLACK)
             self.screen.blit(vp_surface, (header_x, header_y))
             header_y += vp_surface.get_height() + 10
-            
-            # Left Column: Resources.
+
             left_col_x = panel_x + panel_padding
             res_y = header_y
             res_header = self.stats_font.render("Resources:", True, BLACK)
             self.screen.blit(res_header, (left_col_x, res_y))
             res_y += res_header.get_height() + 2
-            
             for res, count in player.resources.items():
                 res_text = f"{res}: {count}"
                 res_surface = self.stats_font.render(res_text, True, BLACK)
@@ -312,24 +283,17 @@ class CatanUI:
                     self.screen.blit(card_surface, (right_col_x, dev_y))
                     dev_y += card_surface.get_height() + 5
 
-
             if isinstance(pa.agent, HumanAgent):
                 trade_panel_rect = pygame.Rect(panel_rect.x + panel_rect.width // 2,
-                                            panel_rect.y,
-                                            panel_rect.width // 2,
-                                            panel_rect.height)
+                                               panel_rect.y,
+                                               panel_rect.width // 2,
+                                               panel_rect.height)
                 self.draw_trade_panel(trade_panel_rect)
+        # If a pending special dev card action is active (MONOPOLY or YEAR_OF_PLENTY), draw the modal overlay.
+        if self.pending_dev_action in ("MONOPOLY", "YEAR_OF_PLENTY"):
+            self.draw_modal_overlay()
 
     def draw_trade_panel(self, panel_rect: pygame.Rect):
-        """
-        Draw a trade panel in the given rectangle. The panel is divided into 5 rows:
-        1. Buy Dev button.
-        2. Trade Out (resource to give) row.
-        3. Trade In (resource to receive) row.
-        4. Trade Ratio row (2, 3, or 4).
-        5. Submit Trade button.
-        The currently selected option (if any) is outlined with a thicker border.
-        """
         num_rows = 5
         margin = 5
         row_height = panel_rect.height / num_rows
@@ -445,6 +409,36 @@ class CatanUI:
         self.screen.blit(submit_label, submit_label_rect)
         self.submit_trade_rect = submit_rect
 
+    def draw_modal_overlay(self):
+        # Draw a semi-transparent gray overlay over the entire screen.
+        overlay = pygame.Surface(self.screen_size)
+        overlay.set_alpha(180)
+        overlay.fill((100, 100, 100))
+        self.screen.blit(overlay, (0, 0))
+        # Draw 5 colored squares for resource selection in the center.
+        modal_width = self.board_area_height * 0.5
+        modal_height = 100
+        modal_x = (self.board_area_width - modal_width) / 2
+        modal_y = (self.board_area_height - modal_height) / 2
+        gap = 10
+        num_options = 5
+        option_width = (modal_width - (num_options - 1) * gap) / num_options
+        for i, res in enumerate(RESOURCE_ORDER):
+            rect = pygame.Rect(modal_x + i * (option_width + gap), modal_y, option_width, modal_height)
+            pygame.draw.rect(self.screen, RESOURCE_COLORS[res.name], rect)
+            # Draw resource label (first letter)
+            label = self.stats_font.render(str(res)[:1], True, BLACK)
+            label_rect = label.get_rect(center=rect.center)
+            self.screen.blit(label, label_rect)
+        # Save the modal rectangle positions for use in click detection.
+        self.modal_rects = [pygame.Rect(modal_x + i * (option_width + gap), modal_y, option_width, modal_height) for i in range(num_options)]
+
+    def get_resource_from_modal(self, pos) -> Resource | None:
+        # Check if the click position is inside any modal rect.
+        for rect, res in zip(self.modal_rects, RESOURCE_ORDER):
+            if rect.collidepoint(pos):
+                return res
+        return None
 
     def advance_setup_turn(self):
         print("-------- Human setup turn complete --------")
@@ -453,58 +447,130 @@ class CatanUI:
         human_index = next(i for i, pa in enumerate(self.game.player_agents)
                             if isinstance(pa.agent, HumanAgent))
         bot_indices = [i for i, pa in enumerate(self.game.player_agents)
-                    if not isinstance(pa.agent, HumanAgent)]
+                       if not isinstance(pa.agent, HumanAgent)]
         total_order = [human_index] + bot_indices + bot_indices[::-1] + [human_index]
         if self.game.setup_turn_counter >= len(total_order):
             self.game.game_phase = GamePhase.MAIN
             self.game.player_turn_index = 0
         else:
             self.game.player_turn_index = total_order[self.game.setup_turn_counter]
-        # Reset the flags for the next human setup turn
         self.human_setup_settlement_placed = False
         self.human_setup_road_placed = False
-
 
     def handle_event(self, event: pygame.event.Event, hover_vertex: RoadVertex = None, hover_road = None, current_player = None):
         if self.game is None:
             return
 
         current_player = self.game.player_agents[self.game.player_turn_index]
-        
         mouse_pos = pygame.mouse.get_pos()
 
+        # ***** First, check for a pending dev card action *****
+        if self.pending_dev_action is not None:
+            if self.pending_dev_action == "KNIGHT":
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    tile = self.game.board.get_tile_at_pos(mouse_pos, self.hexagon_size, self.displacement)
+                    if tile is not None:
+                        self.game.board.move_robber(tile)
+                        print("Robber moved. Now select a settlement/city on that tile to steal from.")
+                        self.pending_dev_action = "KNIGHT_STEAL"
+                return
+
+            elif self.pending_dev_action == "KNIGHT_STEAL":
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    # Here, assume get_building_at_pos returns the settlement/city clicked on.
+                    target = self.game.board.get_building_at_pos(mouse_pos, self.hexagon_size, self.displacement)
+                    if target is not None and target.owner is not None and target.owner != current_player.player.index:
+                        try:
+                            stolen = self.game.player_agents[target.owner].player.take_random_resources(1)
+                            current_player.player.give_resource(stolen[0])
+                            print(f"Stolen resource: {stolen[0]}")
+                        except Exception as e:
+                            print(f"Error during steal: {e}")
+                        self.pending_dev_action = None
+                return
+
+            elif self.pending_dev_action == "ROAD_BUILDER":
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    road = self.game.board.get_road_at_pos(mouse_pos, self.hexagon_size, self.displacement)
+                    if road is not None and current_player.player.is_valid_road_location(road):
+                        try:
+                            current_player.player.build_road(road, self.game, False)
+                            self.pending_dev_data["roads_built"] += 1
+                            print(f"Built free road ({self.pending_dev_data['roads_built']}/2).")
+                        except Exception as e:
+                            print(f"Cannot build road: {e}")
+                        if self.pending_dev_data["roads_built"] >= 2:
+                            self.pending_dev_action = None
+                            self.pending_dev_data = {}
+                return
+
+            elif self.pending_dev_action == "MONOPOLY":
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    res = self.get_resource_from_modal(mouse_pos)
+                    if res is not None:
+                        # Call a method on your game to process monopoly.
+                        self.game.select_and_steal_all_resources(current_player.player.index, res)
+                        print(f"Monopoly applied for {res}.")
+                        self.pending_dev_action = None
+                return
+
+            elif self.pending_dev_action == "YEAR_OF_PLENTY":
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    res = self.get_resource_from_modal(mouse_pos)
+                    if res is not None:
+                        current_player.player.give_resource(res)
+                        self.pending_dev_data["clicks"] += 1
+                        print(f"Received 1 {res} (Year of Plenty).")
+                        if self.pending_dev_data["clicks"] >= 2:
+                            self.pending_dev_action = None
+                            self.pending_dev_data = {}
+                return
+        # ***** End pending action processing *****
+
+        # Normal event handling.
         if isinstance(current_player.agent, HumanAgent):
             if self.game.game_phase == GamePhase.SETUP:
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if not self.human_setup_settlement_placed and hover_vertex is not None:
                         if current_player.player.is_valid_settlement_location(hover_vertex, False) and not hover_vertex.has_settlement:
                             current_player.player.build_settlement(hover_vertex, False)
-                            if isinstance(current_player.agent, HumanAgent):
-                                self.human_setup_settlement_placed = True
+                            self.human_setup_settlement_placed = True
                     if self.human_setup_settlement_placed and not self.human_setup_road_placed and hover_road is not None:
                         if current_player.player.is_valid_road_location(hover_road, True):
                             current_player.player.build_road(hover_road, self.game, False)
-                            if isinstance(current_player.agent, HumanAgent):
-                                self.human_setup_road_placed = True
+                            self.human_setup_road_placed = True
 
-
-                    if isinstance(current_player.agent, HumanAgent) and self.human_setup_settlement_placed and self.human_setup_road_placed:
+                    if self.human_setup_settlement_placed and self.human_setup_road_placed:
                         self.advance_setup_turn()
             else:
-                # MAIN phase for human.
                 if event.type == pygame.MOUSEBUTTONDOWN:
+                    # First, check dev card buttons.
                     if hasattr(self, "dev_card_buttons"):
                         for card, (btn_rect, active) in self.dev_card_buttons.items():
                             if btn_rect.collidepoint(mouse_pos):
                                 if active:
                                     try:
-                                        # PLAY DEVELOPMENT CARD
-                                        print(f"Played {card}.")
+                                        # Instead of immediately playing the card, set pending state.
+                                        if card == DevelopmentCard.KNIGHT:
+                                            self.pending_dev_action = "KNIGHT"
+                                            print("Knight card activated. Click a tile to move the robber.")
+                                        elif card == DevelopmentCard.ROAD_BUILDING:
+                                            self.pending_dev_action = "ROAD_BUILDER"
+                                            self.pending_dev_data = {"roads_built": 0}
+                                            print("Road Builder activated. Build 2 free roads by clicking valid locations.")
+                                        elif card == DevelopmentCard.MONOPOLY:
+                                            self.pending_dev_action = "MONOPOLY"
+                                            print("Monopoly activated. Click on a resource square (modal) to steal all of that resource.")
+                                        elif card == DevelopmentCard.YEAR_OF_PLENTY:
+                                            self.pending_dev_action = "YEAR_OF_PLENTY"
+                                            self.pending_dev_data = {"clicks": 0}
+                                            print("Year of Plenty activated. Click twice on resource squares to gain 2 resources.")
                                     except Exception as e:
                                         print(e)
                                 else:
-                                    print(f"{card} is not playable (either none available or just acquired).")
+                                    print(f"{card} is not playable.")
                                 return
+                    # Then check trade panel.
                     if hasattr(self, "trade_rect") and self.trade_rect.collidepoint(mouse_pos):
                         if self.buy_dev_rect.collidepoint(mouse_pos):
                             try:
@@ -539,7 +605,7 @@ class CatanUI:
                             if current_player.player.is_valid_settlement_location(hover_vertex) and not hover_vertex.has_settlement:
                                 try:
                                     current_player.player.build_settlement(hover_vertex, True)
-                                except  Exception as e:
+                                except Exception as e:
                                     print(e)
                             elif current_player.player.is_valid_city_location(hover_vertex) and not hover_vertex.has_city:
                                 try:
@@ -564,19 +630,15 @@ class CatanUI:
                     self.game.do_full_turn()
                 print(f"Player {self.game.winning_player_index + 1} wins!")
 
-
     def calculate_sizes(self):
         info = pygame.display.Info()
         self.screen_width = info.current_w
         self.screen_height = info.current_h
-
         self.board_area_width = int(self.screen_width * 0.60)
         self.board_area_height = int(self.screen_height * 0.70)
         self.stats_area_width = int(self.screen_width * 0.20)
         self.stats_area_height = int(self.screen_height * 0.70)
         self.screen_size = (self.board_area_width + self.stats_area_width, self.board_area_height)
-
-        # Board center and size for hexagons
         self.hexagon_size = min(self.board_area_width, self.board_area_height) // 10
         self.displacement = Point(self.board_area_width // 2, self.board_area_height // 2)
 
@@ -589,14 +651,10 @@ class CatanUI:
     def open_and_loop(self):
         pygame.init()
         pygame.font.init()
-        
         self.calculate_sizes()
         self.calculate_fonts()
-
-        # Screen setup
         self.screen = pygame.display.set_mode(self.screen_size)
         pygame.display.set_caption("Settlers of Catan Board")
-        
         self.game = self.game_generator()
 
         running = True
@@ -621,13 +679,12 @@ class CatanUI:
                 if event.type == pygame.QUIT:
                     running = False
                 elif event.type == pygame.KEYDOWN and event.key == pygame.K_r:
-                    # TODO: more elegant reset
                     self.game = self.game_generator()
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     self.handle_event(event, hover_vertex, hover_road)
                 else:
                     self.handle_event(event, None, None)
-    
+
             stats_rect = pygame.Rect(self.board_area_width, 0, self.stats_area_width, self.screen_height)
             self.draw_grid(hover_vertex, hover_road)
             self.draw_players()
@@ -635,6 +692,4 @@ class CatanUI:
             self.draw_turn_info()
             self.draw_player_stats(stats_rect)
             pygame.display.flip()
-        
         pygame.quit()
-
