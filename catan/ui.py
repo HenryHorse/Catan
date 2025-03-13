@@ -6,7 +6,7 @@ import pygame
 from catan.agent.random import RandomAgent
 from catan.agent.human import HumanAgent
 
-from catan.board import Harbor, RoadVertex
+from catan.board import DevelopmentCard, Harbor, RoadVertex
 from catan.game import Game
 from catan.util import Point
 from catan.constants import *
@@ -41,6 +41,9 @@ class CatanUI:
         self.trade_resource_out = None
         self.trade_resource_in = None
         self.trade_ratio = 4 # default 4
+
+        self.human_setup_settlement_placed = False
+        self.human_setup_road_placed = False
 
     def attempt_trade(self):
         # Get the current human player (assuming there's one)
@@ -240,24 +243,75 @@ class CatanUI:
                 self.screen.blit(res_surface, (left_col_x + 5, res_y))
                 res_y += res_surface.get_height() + 2
 
-            # Right Column: Development Cards.
             right_col_x = panel_x + stats_rect.width // 4 + panel_padding
             dev_y = header_y
             dev_header = self.stats_font.render("Dev Cards:", True, BLACK)
             self.screen.blit(dev_header, (right_col_x, dev_y))
-            dev_y += dev_header.get_height() + 2
-            
-            dev_counts = Counter(str(card) for card in player.unplayed_dev_cards)
-            if dev_counts:
-                for card_type, count in dev_counts.items():
-                    card_text = f"{card_type.capitalize()}: {count}"
+            dev_y += dev_header.get_height() - 5
+
+            ordered_dev_cards = [
+                DevelopmentCard.VICTORY_POINT,
+                DevelopmentCard.KNIGHT,
+                DevelopmentCard.ROAD_BUILDING,
+                DevelopmentCard.YEAR_OF_PLENTY,
+                DevelopmentCard.MONOPOLY,
+            ]
+
+            if isinstance(pa.agent, HumanAgent):
+                self.dev_card_buttons = {}
+                for card in ordered_dev_cards:
+                    count = sum(1 for c in player.unplayed_dev_cards if c == card)
+                    card_name = str(card)
+                    if card_name == "Year Of Plenty":
+                        card_name = "YoP"
+                    if card_name == "Road Building":
+                        card_name = "RB"
+                    if card_name == "Monopoly":
+                        card_name = "Mono"
+                    card_text = f"{card_name}: {count}"
                     card_surface = self.stats_font.render(card_text, True, BLACK)
-                    self.screen.blit(card_surface, (right_col_x + 5, dev_y))
-                    dev_y += card_surface.get_height() + 2
+                    text_y = dev_y
+
+                    if card == DevelopmentCard.VICTORY_POINT:
+                        self.screen.blit(card_surface, (right_col_x, text_y))
+                        dev_y += card_surface.get_height() + 5
+                    else:
+                        button_text = "Use"
+                        button_surface = self.stats_font.render(button_text, True, BLACK)
+                        button_width = button_surface.get_width() + 10
+                        button_height = button_surface.get_height() + 4
+                        button_rect = pygame.Rect(right_col_x, text_y, button_width, button_height)
+                        
+                        if count > 0:
+                            button_color = WHITE
+                            active = True
+                        else:
+                            button_color = (200, 200, 200)
+                            active = False
+                        
+                        pygame.draw.rect(self.screen, button_color, button_rect)
+                        pygame.draw.rect(self.screen, BLACK, button_rect, 2)
+                        self.screen.blit(button_surface, (button_rect.x + 5, button_rect.y + 2))
+                        self.dev_card_buttons[card] = (button_rect, active)
+                        
+                        text_x = button_rect.right + 10
+                        self.screen.blit(card_surface, (text_x, text_y))
+                        dev_y += max(button_height, card_surface.get_height()) + 5
             else:
-                none_surface = self.stats_font.render("None", True, BLACK)
-                self.screen.blit(none_surface, (right_col_x + 5, dev_y))
-                dev_y += none_surface.get_height() + 2
+                for card in ordered_dev_cards:
+                    count = sum(1 for c in player.unplayed_dev_cards if c == card)
+                    card_name = str(card)
+                    if card_name == "Year Of Plenty":
+                        card_name = "YoP"
+                    if card_name == "Road Building":
+                        card_name = "RB"
+                    if card_name == "Monopoly":
+                        card_name = "Mono"
+                    card_text = f"{card_name}: {count}"
+                    card_surface = self.stats_font.render(card_text, True, BLACK)
+                    self.screen.blit(card_surface, (right_col_x, dev_y))
+                    dev_y += card_surface.get_height() + 5
+
 
             if isinstance(pa.agent, HumanAgent):
                 trade_panel_rect = pygame.Rect(panel_rect.x + panel_rect.width // 2,
@@ -392,6 +446,24 @@ class CatanUI:
         self.submit_trade_rect = submit_rect
 
 
+    def advance_setup_turn(self):
+        print("-------- Human setup turn complete --------")
+        self.game.advance_player_turn()
+        self.game.setup_turn_counter += 1
+        human_index = next(i for i, pa in enumerate(self.game.player_agents)
+                            if isinstance(pa.agent, HumanAgent))
+        bot_indices = [i for i, pa in enumerate(self.game.player_agents)
+                    if not isinstance(pa.agent, HumanAgent)]
+        total_order = [human_index] + bot_indices + bot_indices[::-1] + [human_index]
+        if self.game.setup_turn_counter >= len(total_order):
+            self.game.game_phase = GamePhase.MAIN
+            self.game.player_turn_index = 0
+        else:
+            self.game.player_turn_index = total_order[self.game.setup_turn_counter]
+        # Reset the flags for the next human setup turn
+        self.human_setup_settlement_placed = False
+        self.human_setup_road_placed = False
+
 
     def handle_event(self, event: pygame.event.Event, hover_vertex: RoadVertex = None, hover_road = None, current_player = None):
         if self.game is None:
@@ -403,29 +475,36 @@ class CatanUI:
 
         if isinstance(current_player.agent, HumanAgent):
             if self.game.game_phase == GamePhase.SETUP:
-                if event.type == pygame.MOUSEBUTTONDOWN and hover_vertex is not None:
-                    if current_player.player.is_valid_settlement_location(hover_vertex, False) and not hover_vertex.has_settlement:
-                        current_player.player.build_settlement(hover_vertex, False)
-                elif event.type == pygame.MOUSEBUTTONDOWN and hover_road is not None:
-                    if current_player.player.is_valid_road_location(hover_road, True):
-                        current_player.player.build_road(hover_road, self.game, False)
-                elif event.type == pygame.KEYDOWN and event.key == pygame.K_c:
-                    print("-------- Human setup turn complete --------")
-                    self.game.advance_player_turn()
-                    self.game.setup_turn_counter += 1
-                    human_index = next(i for i, pa in enumerate(self.game.player_agents)
-                                        if isinstance(pa.agent, HumanAgent))
-                    bot_indices = [i for i, pa in enumerate(self.game.player_agents)
-                                if not isinstance(pa.agent, HumanAgent)]
-                    total_order = [human_index] + bot_indices + bot_indices[::-1] + [human_index]
-                    if self.game.setup_turn_counter >= len(total_order):
-                        self.game.game_phase = GamePhase.MAIN
-                        self.game.player_turn_index = 0
-                    else:
-                        self.game.player_turn_index = total_order[self.game.setup_turn_counter]
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    if not self.human_setup_settlement_placed and hover_vertex is not None:
+                        if current_player.player.is_valid_settlement_location(hover_vertex, False) and not hover_vertex.has_settlement:
+                            current_player.player.build_settlement(hover_vertex, False)
+                            if isinstance(current_player.agent, HumanAgent):
+                                self.human_setup_settlement_placed = True
+                    if self.human_setup_settlement_placed and not self.human_setup_road_placed and hover_road is not None:
+                        if current_player.player.is_valid_road_location(hover_road, True):
+                            current_player.player.build_road(hover_road, self.game, False)
+                            if isinstance(current_player.agent, HumanAgent):
+                                self.human_setup_road_placed = True
+
+
+                    if isinstance(current_player.agent, HumanAgent) and self.human_setup_settlement_placed and self.human_setup_road_placed:
+                        self.advance_setup_turn()
             else:
                 # MAIN phase for human.
                 if event.type == pygame.MOUSEBUTTONDOWN:
+                    if hasattr(self, "dev_card_buttons"):
+                        for card, (btn_rect, active) in self.dev_card_buttons.items():
+                            if btn_rect.collidepoint(mouse_pos):
+                                if active:
+                                    try:
+                                        # PLAY DEVELOPMENT CARD
+                                        print(f"Played {card}.")
+                                    except Exception as e:
+                                        print(e)
+                                else:
+                                    print(f"{card} is not playable (either none available or just acquired).")
+                                return
                     if hasattr(self, "trade_rect") and self.trade_rect.collidepoint(mouse_pos):
                         if self.buy_dev_rect.collidepoint(mouse_pos):
                             try:
@@ -452,12 +531,21 @@ class CatanUI:
                     else:
                         if hover_road is not None:
                             if current_player.player.is_valid_road_location(hover_road):
-                                current_player.player.build_road(hover_road, self.game, True)
+                                try:
+                                    current_player.player.build_road(hover_road, self.game, True)
+                                except Exception as e:
+                                    print(e)
                         elif hover_vertex is not None:
                             if current_player.player.is_valid_settlement_location(hover_vertex) and not hover_vertex.has_settlement:
-                                current_player.player.build_settlement(hover_vertex, True)
+                                try:
+                                    current_player.player.build_settlement(hover_vertex, True)
+                                except  Exception as e:
+                                    print(e)
                             elif current_player.player.is_valid_city_location(hover_vertex) and not hover_vertex.has_city:
-                                current_player.player.build_city(hover_vertex, True)
+                                try:
+                                    current_player.player.build_city(hover_vertex, True)
+                                except Exception as e:
+                                    print(e)
                 elif event.type == pygame.KEYDOWN and event.key == pygame.K_c and self.game.winning_player_index is None:
                     print(f'-------- Human Player {self.game.player_turn_index + 1} ends turn {self.game.main_turns_elapsed + 1} --------')
                     self.game.human_dice_rolled = False
