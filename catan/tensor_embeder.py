@@ -29,13 +29,17 @@ class QNetwork(nn.Module):
         self.conv3 = nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1)
         
         # Fully connected layers for player state
-        self.fc1 = nn.Linear(player_state_dim, hidden_dim)
+        self.fc1 = nn.Linear(player_state_dim, hidden_dim)  # Input size: player_state_dim
         self.fc2 = nn.Linear(hidden_dim, hidden_dim)
         
         # Final layer to output Q-values for each action
         self.fc_action = nn.Linear(128 + hidden_dim, action_dim)
     
     def forward(self, x_board, x_player):
+        # Debugging: Print shapes
+        print(f"x_board shape: {x_board.shape}")
+        print(f"x_player shape: {x_player.shape}")
+
         # Process board state
         x_board = torch.relu(self.conv1(x_board))
         x_board = torch.relu(self.conv2(x_board))
@@ -43,6 +47,7 @@ class QNetwork(nn.Module):
         x_board = x_board.view(x_board.size(0), -1)  # Flatten
         
         # Process player state
+        x_player = x_player.view(x_player.size(0), -1)  # Flatten player_state
         x_player = torch.relu(self.fc1(x_player))
         x_player = torch.relu(self.fc2(x_player))
         

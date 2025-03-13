@@ -219,6 +219,9 @@ class CatanUI:
                     player_state = self.serialization.flatten_nested_list(self.serialization.player_states)
                     player_state = torch.tensor(player_state, dtype=torch.float32)
 
+                    # Ensure player_state has the correct shape (batch_size, player_state_dim)
+                    player_state = player_state.unsqueeze(0)  # Add batch dimension
+
                     state = (board_state, player_state)
 
                     current_player_agent = self.game.player_agents[self.game.player_turn_index]
