@@ -41,14 +41,13 @@ class HeuristicAgent(Agent):
             return best_action
 
 
-        # TODO Think of a heuristic for this
-        for action in possible_actions:
-            if isinstance(action, UseDevelopmentCardAction):
-                return action
-
         for action in possible_actions:
             if isinstance(action, BuyDevelopmentCardAction):
-                return action
+                current_player = game.player_agents[self.player.index].player
+                if (current_player.resources[Resource.SHEEP] > 1
+                        and current_player.resources[Resource.GRAIN] > 1
+                        and current_player.resources[Resource.ORE] > 1):
+                    return action
 
 
         return EndTurnAction()
@@ -71,6 +70,9 @@ class HeuristicAgent(Agent):
             if road.owner is None:
                 num_available_roads += 1
         score += num_available_roads
+
+        if road_vertex.harbor:
+            score += 5
 
         return score
 
