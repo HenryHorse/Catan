@@ -14,7 +14,7 @@ import torch.optim as optim
 import numpy as np
 from collections import deque
 from catan.tensor_embeder import QNetwork
-from serialization import BrickRepresentation
+from catan.serialization import BrickRepresentation
 
 BOARD_SIZE = 5
 
@@ -23,8 +23,8 @@ class RL_Agent(Agent):
         super().__init__(board, player)
         
         # Define the dimensions for the Q-Network
-        board_channels = len(player.game.player_agents) + 1  # Number of players + 1 for board state
-        player_state_dim = 13 * len(player.game.player_agents) + 5  # Player states + dev cards
+        board_channels = 4 + 1  # Number of players + 1 for board state
+        player_state_dim = 13 * 4 + 5  # Player states + dev cards
         action_dim = 7  # Number of possible actions
         
         # Initialize the Q-Network
