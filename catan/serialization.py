@@ -58,13 +58,16 @@ class BrickRepresentation:
         return [cell for row in self.board for cell in row]
     
     def encode_player_states(self, game: Game, given_player: PlayerAgent):
-        # Get action space for player (reset to all 0s first for every turn)
+        # Reset the board and player states
         self.reinitialize()
 
+        # Get action space for player
         actions = given_player.player._get_all_possible_actions_normal(game.board)
-        print(actions)
+        print(f"Possible actions: {actions}")
+
+        # Encode actions into player_states
         for act in actions:
-            if isinstance(act, EndTurnAction): # Just 0/1
+            if isinstance(act, EndTurnAction):
                 self.player_states[0][0] = 1
             elif isinstance(act, BuildSettlementAction): # 0/1 and whole map copy
                 self.player_states[0][1] = 1
@@ -86,6 +89,7 @@ class BrickRepresentation:
         
         self.recursive_serialize(self.game, self.game.board.center_tile, None, None, True, actions)
 
+        # Encode player states
         player_index = 0
         for player in game.player_agents:
             self.player_states[1][player_index][0] = player.player.resources[Resource.WOOD]

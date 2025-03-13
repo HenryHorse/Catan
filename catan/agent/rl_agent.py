@@ -87,18 +87,34 @@ class RLAgent:
             return possible_actions[action_idx]  # Exploit (best action based on Q-values)
 
     def store_experience(self, state, action, reward, next_state, done):
-        """Store the agent's experience in the replay buffer"""
-        self.replay_buffer.append((state, action, reward, next_state, done))
+        """Store the agent's experience in the replay buffer."""
+        board_state, player_state = state
+        next_board_state, next_player_state = next_state
+
+        # Convert states to tensors
+        board_state_tensor = torch.tensor(board_state, dtype=torch.float32)
+        player_state_tensor = torch.tensor(player_state, dtype=torch.float32)
+        next_board_state_tensor = torch.tensor(next_board_state, dtype=torch.float32)
+        next_player_state_tensor = torch.tensor(next_player_state, dtype=torch.float32)
+
+        # Store the experience
+        self.replay_buffer.append((
+            (board_state_tensor, player_state_tensor),
+            action,
+            reward,
+            (next_board_state_tensor, next_player_state_tensor),
+            done
+        ))
 
     def train(self):
-        """Train the agent based on experiences collected during the game"""
+        """Train the agent based on experiences collected during the game."""
         if len(self.replay_buffer) < self.batch_size:
             return  # Not enough experiences to train
 
         # Sample a random batch from the replay buffer
         batch = random.sample(self.replay_buffer, self.batch_size)
         states, actions, rewards, next_states, dones = zip(*batch)
-        
+
         # Convert to tensors
         board_states = torch.stack([s[0] for s in states])
         player_states = torch.stack([s[1] for s in states])
@@ -107,23 +123,23 @@ class RLAgent:
         next_board_states = torch.stack([s[0] for s in next_states])
         next_player_states = torch.stack([s[1] for s in next_states])
         dones = torch.tensor(dones, dtype=torch.float32)
-        
+
         # Compute Q-values from the current state
         current_q_values = self.model(board_states, player_states).gather(1, actions.unsqueeze(1)).squeeze(1)
-        
+
         # Compute the target Q-values using the Bellman equation
         with torch.no_grad():
             next_q_values = self.model(next_board_states, next_player_states).max(1)[0]
             target_q_values = rewards + self.gamma * next_q_values * (1 - dones)
-        
+
         # Compute the loss (mean squared error)
         loss = torch.nn.functional.mse_loss(current_q_values, target_q_values)
-        
+
         # Backpropagation and update the model
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
-        
+
         # Update epsilon (decay exploration rate)
         self.epsilon = max(self.epsilon * self.epsilon_decay, 0.01)
 

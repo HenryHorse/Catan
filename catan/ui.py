@@ -6,6 +6,7 @@ import numpy as np
 import torch
 
 from catan.game import Game
+from catan.game import GamePhase
 from catan.util import Point
 from catan.constants import *
 from catan.serialization import BrickRepresentation
@@ -205,16 +206,36 @@ class CatanUI:
                 print(f'-------- Player {self.game.player_turn_index + 1} takes turn {self.game.main_turns_elapsed + 1} --------')
                 self.game.do_full_turn()
                 self.serialization.encode_player_states(self.game, self.game.player_agents[1])
-                print("Player States (Playr 2) :", self.serialization.player_states)
+                print("Player States (Player 2):", self.serialization.player_states)
                 self.serialization.recursive_serialize(self.game, self.game.board.center_tile, None, None)
-                print("Player 2 Board State: ", self.serialization.board[1])
+                print("Player 2 Board State:", self.serialization.board[1])
 
                 # Store experience and train RL agent
                 if self.rl_agent:
-                    state = self.serialization.board, self.serialization.player_states
-                    action = self.game.player_agents[3].agent.get_action(self.game, self.game.player_agents[3].player, self.game.player_agents[3].player.get_all_possible_actions())
-                    reward = self.calculate_reward(self.game.player_agents[3].player)
-                    next_state = self.serialization.board, self.serialization.player_states
+                    # Convert board state to tensor
+                    board_state = torch.tensor(self.serialization.board, dtype=torch.float32)
+
+                    # Flatten player_states and convert to tensor
+                    player_state = []
+                    for layer in self.serialization.player_states:
+                        if isinstance(layer, list):
+                            player_state.extend(layer)
+                        else:
+                            player_state.append(layer)
+                    player_state = torch.tensor(player_state, dtype=torch.float32)
+
+                    state = (board_state, player_state)
+
+                    current_player_agent = self.game.player_agents[self.game.player_turn_index]
+                    possible_actions = current_player_agent.player._get_all_possible_actions_normal(self.game.board)
+                    action = self.rl_agent.get_action(self.game, current_player_agent.player, possible_actions)
+                    reward = self.calculate_reward(current_player_agent.player)
+
+                    # Convert next states to tensors
+                    next_board_state = torch.tensor(self.serialization.board, dtype=torch.float32)
+                    next_player_state = torch.tensor(player_state, dtype=torch.float32)  # Reuse flattened player_state
+                    next_state = (next_board_state, next_player_state)
+
                     done = self.game.winning_player_index is not None
 
                     self.rl_agent.store_experience(state, action, reward, next_state, done)
@@ -231,7 +252,6 @@ class CatanUI:
                     print(f'-------- Player {self.game.player_turn_index + 1} takes turn {self.game.main_turns_elapsed + 1} --------')
                     self.game.do_full_turn()
                 print(f"Player {self.game.winning_player_index + 1} wins!")
-
 
     def calculate_reward(self, player: Player) -> float:
         """Calculate reward based on player's progress."""
