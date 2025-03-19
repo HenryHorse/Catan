@@ -83,10 +83,17 @@ class RLAgent:
             # Get Q-values from the model
             q_values = self.model.forward(board_state, player_state).detach().numpy().flatten()
             
-            # Map Q-values to actions
-            valid_q_values = [q_values[i] for i in range(len(possible_actions))]
+            # Ensure the number of Q-values matches the number of possible actions
+            if len(q_values) < len(possible_actions):
+                print("Warning: Model output has fewer Q-values than possible actions")
+                return random.choice(possible_actions)
+            
+            # Filter Q-values to only valid actions
+            valid_q_values = q_values[:len(possible_actions)]
+            
+            # Select the action with the highest Q-value among valid actions
             action_idx = np.argmax(valid_q_values)
-            return possible_actions[action_idx]
+            return possible_actions[action_idx]  # Exploit (best action based on Q-values)
             # action_idx = np.argmax(q_values)
             # if action_idx< len(possible_actions)-1:
             #     return possible_actions[action_idx]  # Exploit (best action based on Q-values)

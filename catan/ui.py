@@ -299,10 +299,24 @@ class CatanUI:
                     print(f"Model saved to {self.model_path}")
 
     def calculate_reward(self, player: Player) -> float:
-        """Calculate reward based on player's progress."""
+        """Calculate reward based on player's progress, with higher rewards for wheat and ore."""
         reward = 0
-        reward += player.get_victory_points() * 10  # Reward for victory points
-        reward += sum(player.resources.values()) * 0.1  # Reward for resources
+        
+        # Reward for victory points
+        reward += player.get_victory_points() * 5  # Reward for victory points
+        
+        # Reward for resources, with higher weights for wheat and ore
+        resource_weights = {
+            Resource.GRAIN: .3,  
+            Resource.ORE: .3,    
+            Resource.BRICK: .1,  
+            Resource.WOOD: .1,   
+            Resource.SHEEP: .1,  
+        }
+        # Calculate weighted sum of resources
+        for resource, amount in player.resources.items():
+            reward += amount * resource_weights.get(resource, 1)  # Use weight if defined, otherwise default to 1
+        
         return reward
 
     def calculate_sizes(self):
