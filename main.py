@@ -20,7 +20,8 @@ def create_game() -> Game:
     board = Board(3)
 
     player_1 = Player(0, (255, 0, 0))
-    agent_1 = HeuristicAgent(board, player_1)
+    agent_1 = HumanAgent(board, player_1)
+    # agent_1 = HeuristicAgent(board, player_1)
     # agent_1 = RandomAgent(board, player_1)
     player_2 = Player(1, (0, 0, 255))
     agent_2 = HeuristicAgent(board, player_2)
