@@ -25,7 +25,9 @@ def create_game(serialization) -> Game:
     board = Board(3)
 
     player_1 = Player(0, (255, 0, 0))
-    agent_1 = RandomAgent(board, player_1)
+    # agent_1 = RandomAgent(board, player_1)
+    agent_1 = HeuristicAgent(board, player_1)
+    # agent_1 = HumanAgent(board, player_1)
     player_2 = Player(1, (0, 0, 255))
     agent_2 = RandomAgent(board, player_2)
     player_3 = Player(2, (255, 255, 255))

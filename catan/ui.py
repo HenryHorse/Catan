@@ -754,9 +754,9 @@ class CatanUI:
         self.screen_width = info.current_w
         self.screen_height = info.current_h
         self.board_area_width = int(self.screen_width * 0.60)
-        self.board_area_height = int(self.screen_height * 0.70)
-        self.stats_area_width = int(self.screen_width * 0.20)
-        self.stats_area_height = int(self.screen_height * 0.70)
+        self.board_area_height = int(self.screen_height * 0.80)
+        self.stats_area_width = int(self.screen_width * 0.25)
+        self.stats_area_height = int(self.screen_height * 0.80)
         self.screen_size = (self.board_area_width + self.stats_area_width, self.board_area_height)
         self.hexagon_size = min(self.board_area_width, self.board_area_height) // 10
         self.displacement = Point(self.board_area_width // 2, self.board_area_height // 2)
