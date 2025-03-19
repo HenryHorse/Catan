@@ -213,7 +213,7 @@ class CatanUI:
                 # print("Player 2 Board State:", self.serialization.board[1])
 
                 # Store experience and train RL agent
-                if self.game.player_agents[self.game.player_turn_index] == 3:
+                if self.rl_agent and self.game.player_turn_index == 3:
                     print(f'-------- RL AGENT  --------')
                     # Convert board state to tensor
                     board_state = torch.tensor(self.serialization.board, dtype=torch.float32)
