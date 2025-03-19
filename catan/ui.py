@@ -14,6 +14,8 @@ from catan.util import Point
 from catan.constants import *
 from catan.game import GamePhase
 
+from globals import DEV_MODE
+
 # List of resources in fixed order for modal overlays.
 RESOURCE_ORDER = [Resource.WOOD, Resource.GRAIN, Resource.SHEEP, Resource.ORE, Resource.BRICK]
 from catan.serialization import BrickRepresentation
@@ -71,25 +73,30 @@ class CatanUI:
         player = human_pa.player
 
         if self.trade_resource_in is None or self.trade_resource_out is None:
-            print("Trade selection incomplete!")
+            if DEV_MODE:
+                print("Trade selection incomplete!")
             return
 
         if player.resources[self.trade_resource_in] < self.trade_ratio:
-            print("Not enough resources to trade!")
+            if DEV_MODE:
+                print("Not enough resources to trade!")
             return
 
         if self.trade_ratio == 2:
             if not player.has_harbor(self.trade_resource_in):
-                print("You do not have the required 2:1 harbor for that resource!")
+                if DEV_MODE:
+                    print("You do not have the required 2:1 harbor for that resource!")
                 return
         elif self.trade_ratio == 3:
             if not player.has_harbor(Harbor.THREE_TO_ONE):
-                print("You do not have a 3:1 harbor!")
+                if DEV_MODE:
+                    print("You do not have a 3:1 harbor!")
                 return
 
         player.resources[self.trade_resource_in] -= self.trade_ratio
         player.resources[self.trade_resource_out] += 1
-        print(f"Traded {self.trade_ratio} {self.trade_resource_in} for 1 {self.trade_resource_out}.")
+        if DEV_MODE:
+            print(f"Traded {self.trade_ratio} {self.trade_resource_in} for 1 {self.trade_resource_out}.")
 
         self.trade_resource_in = None
         self.trade_resource_out = None
@@ -233,7 +240,7 @@ class CatanUI:
             dev_y = header_y
             dev_header = self.stats_font.render("Dev Cards:", True, BLACK)
             self.screen.blit(dev_header, (right_col_x, dev_y))
-            dev_y += dev_header.get_height() - 5
+            dev_y += dev_header.get_height() + 5
 
             ordered_dev_cards = [
                 DevelopmentCard.VICTORY_POINT,
@@ -456,7 +463,8 @@ class CatanUI:
         return None
 
     def advance_setup_turn(self):
-        print("-------- Human setup turn complete --------")
+        if DEV_MODE:
+            print("-------- Human setup turn complete --------")
         self.game.advance_player_turn()
         self.game.setup_turn_counter += 1
         human_index = next(i for i, pa in enumerate(self.game.player_agents)
@@ -486,7 +494,8 @@ class CatanUI:
                     tile = self.game.board.get_tile_at_pos(mouse_pos, self.hexagon_size, self.displacement)
                     if tile is not None:
                         self.game.board.move_robber(tile)
-                        print("Robber moved. Now select a settlement/city on that tile to steal from.")
+                        if DEV_MODE:
+                            print("Robber moved. Now select a settlement/city on that tile to steal from.")
                         self.pending_dev_action = "KNIGHT_STEAL"
                 return
 
@@ -498,9 +507,11 @@ class CatanUI:
                         try:
                             stolen = self.game.player_agents[target.owner].player.take_random_resources(1)
                             current_player.player.give_resource(stolen[0])
-                            print(f"Stolen resource: {stolen[0]}")
+                            if DEV_MODE:
+                                print(f"Stolen resource: {stolen[0]}")
                         except Exception as e:
-                            print(f"Error during steal: {e}")
+                            if DEV_MODE:
+                                print(f"Error during steal: {e}")
                         self.pending_dev_action = None
                 return
 
@@ -511,9 +522,11 @@ class CatanUI:
                         try:
                             current_player.player.build_road(road, self.game, False)
                             self.pending_dev_data["roads_built"] += 1
-                            print(f"Built free road ({self.pending_dev_data['roads_built']}/2).")
+                            if DEV_MODE:
+                                print(f"Built free road ({self.pending_dev_data['roads_built']}/2).")
                         except Exception as e:
-                            print(f"Cannot build road: {e}")
+                            if DEV_MODE:
+                                print(f"Cannot build road: {e}")
                         if self.pending_dev_data["roads_built"] >= 2:
                             self.pending_dev_action = None
                             self.pending_dev_data = {}
@@ -525,7 +538,8 @@ class CatanUI:
                     if res is not None:
                         # Call a method on your game to process monopoly.
                         self.game.select_and_steal_all_resources(current_player.player.index, res)
-                        print(f"Monopoly applied for {res}.")
+                        if DEV_MODE:
+                            print(f"Monopoly applied for {res}.")
                         self.pending_dev_action = None
                 return
 
@@ -535,7 +549,8 @@ class CatanUI:
                     if res is not None:
                         current_player.player.give_resource(res)
                         self.pending_dev_data["clicks"] += 1
-                        print(f"Received 1 {res} (Year of Plenty).")
+                        if DEV_MODE:
+                            print(f"Received 1 {res} (Year of Plenty).")
                         if self.pending_dev_data["clicks"] >= 2:
                             self.pending_dev_action = None
                             self.pending_dev_data = {}
@@ -568,45 +583,57 @@ class CatanUI:
                                         # Instead of immediately playing the card, set pending state.
                                         if card == DevelopmentCard.KNIGHT:
                                             self.pending_dev_action = "KNIGHT"
-                                            print("Knight card activated. Click a tile to move the robber.")
+                                            if DEV_MODE:
+                                                print("Knight card activated. Click a tile to move the robber.")
                                         elif card == DevelopmentCard.ROAD_BUILDING:
                                             self.pending_dev_action = "ROAD_BUILDER"
                                             self.pending_dev_data = {"roads_built": 0}
-                                            print("Road Builder activated. Build 2 free roads by clicking valid locations.")
+                                            if DEV_MODE:
+                                                print("Road Builder activated. Build 2 free roads by clicking valid locations.")
                                         elif card == DevelopmentCard.MONOPOLY:
                                             self.pending_dev_action = "MONOPOLY"
-                                            print("Monopoly activated. Click on a resource square (modal) to steal all of that resource.")
+                                            if DEV_MODE:
+                                                print("Monopoly activated. Click on a resource square (modal) to steal all of that resource.")
                                         elif card == DevelopmentCard.YEAR_OF_PLENTY:
                                             self.pending_dev_action = "YEAR_OF_PLENTY"
                                             self.pending_dev_data = {"clicks": 0}
-                                            print("Year of Plenty activated. Click twice on resource squares to gain 2 resources.")
+                                            if DEV_MODE:
+                                                print("Year of Plenty activated. Click twice on resource squares to gain 2 resources.")
                                     except Exception as e:
-                                        print(e)
+                                        if DEV_MODE:
+                                            print(e)
                                 else:
-                                    print(f"{card} is not playable.")
+                                    if DEV_MODE:
+                                        print(f"{card} is not playable.")
                                 return
                     # Then check trade panel.
                     if hasattr(self, "trade_rect") and self.trade_rect.collidepoint(mouse_pos):
                         if self.buy_dev_rect.collidepoint(mouse_pos):
                             try:
                                 current_player.player.buy_development_card(self.game.board)
-                                print("Bought a development card.")
+                                if DEV_MODE:
+                                    print("Bought a development card.")
                             except Exception as e:
-                                print(e)
+                                if DEV_MODE:
+                                    print(e)
                         for rect, res in self.trade_out_buttons:
                             if rect.collidepoint(mouse_pos):
                                 self.trade_resource_in = res
-                                print(f"Selected to trade out: {res}")
+                                if DEV_MODE:
+                                    print(f"Selected to trade out: {res}")
                         for rect, res in self.trade_in_buttons:
                             if rect.collidepoint(mouse_pos):
                                 self.trade_resource_out = res
-                                print(f"Selected to trade in: {res}")
+                                if DEV_MODE:
+                                    print(f"Selected to trade in: {res}")
                         for rect, ratio in self.trade_ratio_buttons:
                             if rect.collidepoint(mouse_pos):
                                 self.trade_ratio = ratio
-                                print(f"Selected trade ratio: {ratio}")
+                                if DEV_MODE:
+                                    print(f"Selected trade ratio: {ratio}")
                         if self.submit_trade_rect.collidepoint(mouse_pos):
-                            print("Submit Trade clicked.")
+                            if DEV_MODE:
+                                print("Submit Trade clicked.")
                             self.attempt_trade()
                         return
                     else:
@@ -615,36 +642,44 @@ class CatanUI:
                                 try:
                                     current_player.player.build_road(hover_road, self.game, True)
                                 except Exception as e:
-                                    print(e)
+                                    if DEV_MODE:
+                                        print(e)
                         elif hover_vertex is not None:
                             if current_player.player.is_valid_settlement_location(hover_vertex) and not hover_vertex.has_settlement:
                                 try:
                                     current_player.player.build_settlement(hover_vertex, True)
                                 except Exception as e:
-                                    print(e)
+                                    if DEV_MODE:
+                                        print(e)
                             elif current_player.player.is_valid_city_location(hover_vertex) and not hover_vertex.has_city:
                                 try:
                                     current_player.player.build_city(hover_vertex, True)
                                 except Exception as e:
-                                    print(e)
+                                    if DEV_MODE:
+                                        print(e)
                 elif event.type == pygame.KEYDOWN and event.key == pygame.K_c and self.game.winning_player_index is None:
-                    print(f'-------- Human Player {self.game.player_turn_index + 1} ends turn {self.game.main_turns_elapsed + 1} --------')
+                    if DEV_MODE:
+                        print(f'-------- Human Player {self.game.player_turn_index + 1} ends turn {self.game.main_turns_elapsed + 1} --------')
                     self.game.human_dice_rolled = False
                     self.game.recompute_longest_road()
                     self.game.recompute_largest_army()
                     self.game.advance_player_turn()
         elif event.type == pygame.KEYDOWN and not self.game.has_human:
             if event.key == pygame.K_SPACE and self.game.winning_player_index is None:
-                print(f'-------- Player {self.game.player_turn_index + 1} takes turn {self.game.main_turns_elapsed + 1} --------')
+                if DEV_MODE:
+                    print(f'-------- Player {self.game.player_turn_index + 1} takes turn {self.game.main_turns_elapsed + 1} --------')
                 self.game.do_full_turn()
                 self.serialization.encode_player_states(self.game, self.game.player_agents[1].player)
-                # print("Player States (Player 2):", self.serialization.player_states)
+                if DEV_MODE:
+                    print("Player States (Player 2):", self.serialization.player_states)
                 self.serialization.recursive_serialize(self.game, self.game.board.center_tile, None, None)
-                # print("Player 2 Board State:", self.serialization.board[1])
+                if DEV_MODE:
+                    print("Player 2 Board State:", self.serialization.board[1])
 
                 # Store experience and train RL agent
-                if self.rl_agent and self.game.player_turn_index == 3:
-                    print(f'-------- RL AGENT  --------')
+                if self.rl_agent:
+                    if DEV_MODE:
+                        print(f'-------- RL AGENT  --------')
                     # Convert board state to tensor
                     board_state = torch.tensor(self.serialization.board, dtype=torch.float32)
 
@@ -671,32 +706,36 @@ class CatanUI:
 
                     self.rl_agent.store_experience(state, action, reward, next_state, done)
 
-                    print("training stuff")
                     self.rl_agent.train()
                     # Save the model
                     if self.rl_agent and self.model_path:
                         torch.save(self.rl_agent.model.state_dict(), self.model_path)
-                        print(f"Model saved to {self.model_path}")
+                        if DEV_MODE:
+                            print(f"Model saved to {self.model_path}")
 
                 if self.game.winning_player_index is not None:
-                    print(f"Player {self.game.winning_player_index + 1} wins!")
+                    if DEV_MODE:
+                        print(f"Player {self.game.winning_player_index + 1} wins!")
                     # Save the model after each game
                     if self.rl_agent and self.model_path:
                         torch.save(self.rl_agent.model.state_dict(), self.model_path)
-                        print(f"Model saved to {self.model_path}")
+                        if DEV_MODE:
+                            print(f"Model saved to {self.model_path}")
             elif event.key == pygame.K_x:
                 while self.game.winning_player_index is None:
-                    print(f'-------- Player {self.game.player_turn_index + 1} takes turn {self.game.main_turns_elapsed + 1} --------')
+                    if DEV_MODE:
+                        print(f'-------- Player {self.game.player_turn_index + 1} takes turn {self.game.main_turns_elapsed + 1} --------')
                     self.game.do_full_turn()
 
                     self.serialization.encode_player_states(self.game, self.game.player_agents[1].player)
-                    # print("Player States (Player 2):", self.serialization.player_states)
+                    if DEV_MODE:
+                        print("Player States (Player 2):", self.serialization.player_states)
                     self.serialization.recursive_serialize(self.game, self.game.board.center_tile, None, None)
-                    # print("Player 2 Board State:", self.serialization.board[1])
+                    if DEV_MODE:
+                        print("Player 2 Board State:", self.serialization.board[1])
 
                     # Store experience and train RL agent
                     if self.rl_agent:
-                        print("doing stuff")
                         # Convert board state to tensor
                         board_state = torch.tensor(self.serialization.board, dtype=torch.float32)
 
@@ -723,10 +762,12 @@ class CatanUI:
 
                         self.rl_agent.store_experience(state, action, reward, next_state, done)
                         self.rl_agent.train()
-                print(f"Player {self.game.winning_player_index + 1} wins!")
+                if DEV_MODE:
+                    print(f"Player {self.game.winning_player_index + 1} wins!")
                 if self.rl_agent and self.model_path:
                     torch.save(self.rl_agent.model.state_dict(), self.model_path)
-                    print(f"Model saved to {self.model_path}")
+                    if DEV_MODE:
+                        print(f"Model saved to {self.model_path}")
 
     def calculate_reward(self, player: Player) -> float:
         """Calculate reward based on player's progress, with higher rewards for wheat and ore."""
@@ -767,7 +808,62 @@ class CatanUI:
         self.stats_title_font = pygame.font.SysFont('Arial', int(self.screen_height * 0.022))
         self.stats_font = pygame.font.SysFont('Arial', int(self.screen_height * 0.014))
 
-    def open_and_loop(self):
+    def open_and_loop(self, doSimulate, train):
+        if doSimulate:
+            num_games = 200
+            total_turns = 0
+            win_counts = {}
+            self.game = self.game_generator()
+            self.initial_game_state = copy.deepcopy(self.game)
+            print("Starting simulation of 200 games...")
+            if train == 1:
+                print("Training enabled")
+            for i in range(num_games):
+                print("Game ", i)
+                while self.game.winning_player_index is None:
+                    self.game.do_full_turn()
+
+                    if train == 1:
+                        self.serialization.encode_player_states(self.game, self.game.player_agents[1].player)
+                        self.serialization.recursive_serialize(self.game, self.game.board.center_tile, None, None)
+                        board_state = torch.tensor(self.serialization.board, dtype=torch.float32)
+                        player_state = self.serialization.flatten_nested_list(self.serialization.player_states)
+                        player_state = torch.tensor(player_state, dtype=torch.float32)
+                        player_state = player_state.unsqueeze(0)  # Add batch dimension
+                        state = (board_state, player_state)
+                        
+                        current_player_agent = self.game.player_agents[self.game.player_turn_index]
+                        possible_actions = current_player_agent.player._get_all_possible_actions_normal(self.game.board)
+                        action = self.rl_agent.get_action(self.game, current_player_agent.player, possible_actions)
+                        reward = self.calculate_reward(current_player_agent.player)
+                        
+                        next_board_state = torch.tensor(self.serialization.board, dtype=torch.float32)
+                        next_player_state = torch.tensor(player_state, dtype=torch.float32)
+                        next_state = (next_board_state, next_player_state)
+                        
+                        done = self.game.winning_player_index is not None
+                        self.rl_agent.store_experience(state, action, reward, next_state, done)
+                        self.rl_agent.train()
+
+                turns = self.game.main_turns_elapsed + 1
+                total_turns += turns
+                winner = self.game.winning_player_index
+                win_counts[winner] = win_counts.get(winner, 0) + 1
+                if DEV_MODE:
+                    print(f"Game {i+1} finished in {turns} turns. Winner: Player {winner + 1}")
+                self.game = self.game_generator()
+                self.game = copy.deepcopy(self.initial_game_state)
+            avg_turns = total_turns / num_games
+            print("\nSimulation complete")
+            print(f"Average number of turns: {avg_turns:.2f}")
+            for player in sorted(win_counts.keys()):
+                print(f"Player {player + 1}: {win_counts[player]} wins")
+            if train == 1 and self.rl_agent and self.model_path:
+                torch.save(self.rl_agent.model.state_dict(), self.model_path)
+                print(f"Model saved to {self.model_path}")
+            return
+
+        # Interactive mode
         pygame.init()
         pygame.font.init()
         self.calculate_sizes()
@@ -787,13 +883,16 @@ class CatanUI:
                 hover_road = None
             if self.game.has_human and self.game.player_turn_index != 0:
                 if self.game.winning_player_index is None:
-                    print(f'-------- Player {self.game.player_turn_index + 1} takes turn {self.game.main_turns_elapsed + 1} --------')
+                    if DEV_MODE:
+                        print(f'-------- Player {self.game.player_turn_index + 1} takes turn {self.game.main_turns_elapsed + 1} --------')
                     self.game.do_full_turn()
                     if self.game.winning_player_index is not None:
-                        print(f"Player {self.game.winning_player_index + 1} wins!")
-            elif self.game.has_human and self.game.human_dice_rolled == False and self.game.game_phase == GamePhase.MAIN:
+                        if DEV_MODE:
+                            print(f"Player {self.game.winning_player_index + 1} wins!")
+            elif self.game.has_human and not self.game.human_dice_rolled and self.game.game_phase == GamePhase.MAIN:
                 if self.game.winning_player_index is None:
-                    print(f'-------- Human Player starts turn {self.game.main_turns_elapsed + 1} --------')
+                    if DEV_MODE:
+                        print(f'-------- Human Player starts turn {self.game.main_turns_elapsed + 1} --------')
                     self.game.human_dice_roll()
                     self.game.human_dice_rolled = True
             for event in pygame.event.get():

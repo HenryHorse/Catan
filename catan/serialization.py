@@ -4,6 +4,8 @@ from catan.board import Tile, Road, Resource, DevelopmentCard, RoadVertex, Harbo
 from catan.game import Game, PlayerAgent
 from catan.player import Player, EndTurnAction, BuildSettlementAction, BuildCityAction, BuildRoadAction, BuyDevelopmentCardAction, UseDevelopmentCardAction, TradeAction
 
+from globals import DEV_MODE
+
 BOARD_SIZE = 5
 
 BRICK_TILE_DISPLACEMENTS = [(2, 2), (4, 0), (2, -2), (-2, -2), (-4, 0), (-2, 2)]
@@ -73,7 +75,8 @@ class BrickRepresentation:
 
         # Get action space for player
         actions = given_player._get_all_possible_actions_normal(game.board)
-        print(f"Possible actions: {actions}")
+        if DEV_MODE:
+            print(f"Possible actions: {actions}")
 
         # Encode actions into player_states
         for act in actions:
@@ -155,7 +158,8 @@ class BrickRepresentation:
 
         # Validate coordinates
         if not (0 <= x < self.width and 0 <= y < self.height):
-            print(f"Warning: Invalid coordinates (x={x}, y={y}) for board of size {self.width}x{self.height}")
+            if DEV_MODE:
+                print(f"Warning: Invalid coordinates (x={x}, y={y}) for board of size {self.width}x{self.height}")
             return
 
         # Last channel for board state

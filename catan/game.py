@@ -8,6 +8,8 @@ from catan.board import Board
 from catan.player import Player
 from catan.agent import Agent
 
+from globals import DEV_MODE
+
 
 @dataclass
 class PlayerAgent:
@@ -58,7 +60,8 @@ class Game:
 
     def perform_dice_roll(self):
         roll = random.randint(1, 6) + random.randint(1, 6)
-        print(f"Rolled a {roll}")
+        if DEV_MODE:
+            print(f"Rolled a {roll}")
 
         if roll == 7:
             # TODO: do that whole resources >= 8 thing
@@ -75,7 +78,8 @@ class Game:
     def move_robber_and_steal(self, player_index: int):
         player, agent = self.player_agents[player_index].as_tuple()
         location = agent.get_robber_placement(self)
-        print(f"Player {self.player_turn_index + 1} moves robber to {location}")
+        if DEV_MODE:
+            print(f"Player {self.player_turn_index + 1} moves robber to {location}")
         for tile in self.board.tiles.values():
             tile.has_robber = tile.cube_coords == location
             if tile.has_robber:
@@ -88,7 +92,8 @@ class Game:
                         continue
                     resource = target_player.take_random_resources(1)[0]
                     player.give_resource(resource, 1)
-                    print(f"Player {self.player_turn_index + 1} steals from Player {steal_from + 1}")
+                    if DEV_MODE:
+                        print(f"Player {self.player_turn_index + 1} steals from Player {steal_from + 1}")
     
     def discard_half_resources_from_all(self):
         for player_agent in self.player_agents:
@@ -96,7 +101,8 @@ class Game:
             if player.get_resource_count() > 7:
                 discard_count = player.resource_count() // 2
                 _ = player.take_random_resources(discard_count)
-                print(f"Player {player.index + 1} discards {discard_count} resources")
+                if DEV_MODE:
+                    print(f"Player {player.index + 1} discards {discard_count} resources")
     
     def select_and_give_resource(self, player_index: int):
         player, agent = self.player_agents[player_index].as_tuple()
@@ -191,10 +197,12 @@ class Game:
                 if self.setup_turn_counter < len(total_order):
                     current_player_index = total_order[self.setup_turn_counter]
                     if current_player_index == human_index:
-                        print("Human setup turn: waiting for human input.")
+                        if DEV_MODE:
+                            print("Human setup turn: waiting for human input.")
                         return
                     else:
-                        print(f"Bot {current_player_index + 1} auto-turn: placing settlement and road.")
+                        if DEV_MODE:
+                            print(f"Bot {current_player_index + 1} auto-turn: placing settlement and road.")
                         self.get_and_perform_player_action(current_player_index)  # settlement
                         self.get_and_perform_player_action(current_player_index)  # road
                         self.setup_turn_counter += 1
@@ -202,7 +210,8 @@ class Game:
                             self.player_turn_index = total_order[self.setup_turn_counter]
                         return
                 else:
-                    print("Setup complete; entering main phase.")
+                    if DEV_MODE:
+                        print("Setup complete; entering main phase.")
                     self.game_phase = GamePhase.MAIN
                     self.player_turn_index = human_index
                     return
@@ -230,9 +239,11 @@ class Game:
                     current_player_index = n - 1 - player_index_in_round
 
                 if action_index == 0:
-                    print(f"Round {current_round+1} - Player {current_player_index + 1} places a settlement.")
+                    if DEV_MODE:
+                        print(f"Round {current_round+1} - Player {current_player_index + 1} places a settlement.")
                 else:
-                    print(f"Round {current_round+1} - Player {current_player_index + 1} places a road.")
+                    if DEV_MODE:
+                        print(f"Round {current_round+1} - Player {current_player_index + 1} places a road.")
                 self.get_and_perform_player_action(current_player_index)
                 self.setup_turns_elapsed += 1
 

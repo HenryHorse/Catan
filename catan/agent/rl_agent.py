@@ -19,6 +19,8 @@ from catan.player import Player, Action, BuildSettlementAction, BuildCityAction,
     BuyDevelopmentCardAction, TradeAction, UseDevelopmentCardAction, EndTurnAction
 from catan.game import GamePhase
 
+from globals import DEV_MODE
+
 
 BOARD_SIZE = 5
 
@@ -231,7 +233,8 @@ class RLAgent:
     def get_action(self, game: 'Game', player: 'Player', possible_actions: list[Action]):
         """Select an action using epsilon-greedy strategy"""
         if random.random() < self.epsilon:
-            print("Heuristic action selected on epsilon of: ",  self.epsilon)
+            if DEV_MODE:
+                print("Heuristic action selected on epsilon of: ",  self.epsilon)
             return self.get_action_heuristic(game,possible_actions, player)
         else:
             board_state, player_state = self.get_state(game, player)
@@ -243,7 +246,8 @@ class RLAgent:
             
             # Ensure the number of Q-values matches the number of possible actions
             if len(q_values) < len(possible_actions):
-                print("Warning: Model output has fewer Q-values than possible actions")
+                if DEV_MODE:
+                    print("Warning: Model output has fewer Q-values than possible actions")
                 return random.choice(possible_actions)
             
             # Filter Q-values to only valid actions
@@ -256,9 +260,10 @@ class RLAgent:
             # if action_idx< len(possible_actions)-1:
             #     return possible_actions[action_idx]  # Exploit (best action based on Q-values)
             # else:
-            #     print("Invalid action index++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
-            #     print("action: " +str(action_idx))
-            #     print("Possable actions: " + str(possible_actions))
+            #     if DEV_MODE:
+            #       print("Invalid action index++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+            #       print("action: " +str(action_idx))
+            #       print("Possable actions: " + str(possible_actions))
             #     return random.choice(possible_actions)  # Explore (random action)
 
     def store_experience(self, state, action, reward, next_state, done):
@@ -284,7 +289,8 @@ class RLAgent:
     def train(self):
         """Train the agent based on experiences collected during the game."""
         if len(self.replay_buffer) < self.batch_size:
-            print("replay buff too small"+ " Buffer size: "+str(len(self.replay_buffer))+ " Batch size:  "+ str(self.batch_size))
+            if DEV_MODE:
+                print("replay buff too small"+ " Buffer size: "+str(len(self.replay_buffer))+ " Batch size:  "+ str(self.batch_size))
             return  # Not enough experiences to train
 
         # Sample a random batch from the replay buffer
@@ -318,7 +324,8 @@ class RLAgent:
 
         # Update epsilon (decay exploration rate)
         self.epsilon = max(self.epsilon * self.epsilon_decay, 0.01)
-        print("updated epsilon:" + str(self.epsilon))
+        if DEV_MODE:
+            print("updated epsilon:" + str(self.epsilon))
 
 
 class ActionMapper:
