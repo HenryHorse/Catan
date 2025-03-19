@@ -47,7 +47,7 @@ class RL_Agent(Agent):
 
 
 class RLAgent:
-    def __init__(self, model: QNetwork, gamma=0.99, epsilon=1.0, epsilon_decay=0.995, batch_size=12, learning_rate=0.001):
+    def __init__(self, model: QNetwork, gamma=0.99, epsilon=1.0, epsilon_decay=0.99995, batch_size=12, learning_rate=0.001):
         self.model = model
         self.gamma = gamma
         self.epsilon = epsilon
