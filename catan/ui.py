@@ -2,22 +2,33 @@ from collections import Counter
 from typing import Callable
 import pygame
 import math
+import numpy as np
+import torch
 
 from catan.agent.random import RandomAgent
 from catan.agent.human import HumanAgent
 from catan.board import DevelopmentCard, Harbor, RoadVertex
 from catan.game import Game
+from catan.game import GamePhase
 from catan.util import Point
 from catan.constants import *
 from catan.game import GamePhase
 
 # List of resources in fixed order for modal overlays.
 RESOURCE_ORDER = [Resource.WOOD, Resource.GRAIN, Resource.SHEEP, Resource.ORE, Resource.BRICK]
+from catan.serialization import BrickRepresentation
+from catan.agent.rl_agent import RLAgent
+from catan.player import Player
+
+import copy
+
 
 class CatanUI:
     game: Game | None
     game_generator: Callable[[], Game]
     screen: pygame.Surface | None
+    rl_agent: RLAgent | None
+    model_path: str | None
 
     screen_width: int
     screen_height: int
@@ -35,10 +46,13 @@ class CatanUI:
     stats_title_font: pygame.font.Font
     stats_font: pygame.font.Font
 
-    def __init__(self, game_generator: Callable[[], Game]):
+    def __init__(self, game_generator: Callable[[], Game], serialization: BrickRepresentation, rl_agent: RLAgent = None, model_path: str = None):
         self.game = None
         self.game_generator = game_generator
         self.screen = None
+        self.serialization = serialization
+        self.rl_agent = rl_agent
+        self.model_path = model_path
 
         self.trade_resource_out = None
         self.trade_resource_in = None
@@ -80,6 +94,7 @@ class CatanUI:
         self.trade_resource_in = None
         self.trade_resource_out = None
         self.trade_ratio = 4
+
 
     def draw_tile(self, fill_color: tuple[int, int, int], outline_color: tuple[int, int, int], vertices: list[Point]):
         number_pairs = [point.to_int_tuple() for point in vertices]
@@ -252,19 +267,19 @@ class CatanUI:
                         button_width = button_surface.get_width() + 10
                         button_height = button_surface.get_height() + 4
                         button_rect = pygame.Rect(right_col_x, text_y, button_width, button_height)
-                        
+
                         if count > 0:
                             button_color = WHITE
                             active = True
                         else:
                             button_color = (200, 200, 200)
                             active = False
-                        
+
                         pygame.draw.rect(self.screen, button_color, button_rect)
                         pygame.draw.rect(self.screen, BLACK, button_rect, 2)
                         self.screen.blit(button_surface, (button_rect.x + 5, button_rect.y + 2))
                         self.dev_card_buttons[card] = (button_rect, active)
-                        
+
                         text_x = button_rect.right + 10
                         self.screen.blit(card_surface, (text_x, text_y))
                         dev_y += max(button_height, card_surface.get_height()) + 5
@@ -314,7 +329,7 @@ class CatanUI:
 
         resources = [Resource.WOOD, Resource.GRAIN, Resource.SHEEP, Resource.ORE, Resource.BRICK]
         num_options = len(resources)
-        
+
         row1_y = panel_rect.y + row_height
         trade_out_rect = pygame.Rect(
             panel_rect.x + margin,
@@ -622,13 +637,117 @@ class CatanUI:
             if event.key == pygame.K_SPACE and self.game.winning_player_index is None:
                 print(f'-------- Player {self.game.player_turn_index + 1} takes turn {self.game.main_turns_elapsed + 1} --------')
                 self.game.do_full_turn()
+                self.serialization.encode_player_states(self.game, self.game.player_agents[1].player)
+                # print("Player States (Player 2):", self.serialization.player_states)
+                self.serialization.recursive_serialize(self.game, self.game.board.center_tile, None, None)
+                # print("Player 2 Board State:", self.serialization.board[1])
+
+                # Store experience and train RL agent
+                if self.rl_agent and self.game.player_turn_index == 3:
+                    print(f'-------- RL AGENT  --------')
+                    # Convert board state to tensor
+                    board_state = torch.tensor(self.serialization.board, dtype=torch.float32)
+
+                    # Flatten player_states and convert to tensor
+                    player_state = self.serialization.flatten_nested_list(self.serialization.player_states)
+                    player_state = torch.tensor(player_state, dtype=torch.float32)
+
+                    # Ensure player_state has the correct shape (batch_size, player_state_dim)
+                    player_state = player_state.unsqueeze(0)  # Add batch dimension
+
+                    state = (board_state, player_state)
+
+                    current_player_agent = self.game.player_agents[self.game.player_turn_index]
+                    possible_actions = current_player_agent.player._get_all_possible_actions_normal(self.game.board)
+                    action = self.rl_agent.get_action(self.game, current_player_agent.player, possible_actions)
+                    reward = self.calculate_reward(current_player_agent.player)
+
+                    # Convert next states to tensors
+                    next_board_state = torch.tensor(self.serialization.board, dtype=torch.float32)
+                    next_player_state = torch.tensor(player_state, dtype=torch.float32)  # Reuse flattened player_state
+                    next_state = (next_board_state, next_player_state)
+
+                    done = self.game.winning_player_index is not None
+
+                    self.rl_agent.store_experience(state, action, reward, next_state, done)
+
+                    print("training stuff")
+                    self.rl_agent.train()
+                    # Save the model
+                    if self.rl_agent and self.model_path:
+                        torch.save(self.rl_agent.model.state_dict(), self.model_path)
+                        print(f"Model saved to {self.model_path}")
+
                 if self.game.winning_player_index is not None:
                     print(f"Player {self.game.winning_player_index + 1} wins!")
+                    # Save the model after each game
+                    if self.rl_agent and self.model_path:
+                        torch.save(self.rl_agent.model.state_dict(), self.model_path)
+                        print(f"Model saved to {self.model_path}")
             elif event.key == pygame.K_x:
                 while self.game.winning_player_index is None:
                     print(f'-------- Player {self.game.player_turn_index + 1} takes turn {self.game.main_turns_elapsed + 1} --------')
                     self.game.do_full_turn()
+
+                    self.serialization.encode_player_states(self.game, self.game.player_agents[1].player)
+                    # print("Player States (Player 2):", self.serialization.player_states)
+                    self.serialization.recursive_serialize(self.game, self.game.board.center_tile, None, None)
+                    # print("Player 2 Board State:", self.serialization.board[1])
+
+                    # Store experience and train RL agent
+                    if self.rl_agent:
+                        print("doing stuff")
+                        # Convert board state to tensor
+                        board_state = torch.tensor(self.serialization.board, dtype=torch.float32)
+
+                        # Flatten player_states and convert to tensor
+                        player_state = self.serialization.flatten_nested_list(self.serialization.player_states)
+                        player_state = torch.tensor(player_state, dtype=torch.float32)
+
+                        # Ensure player_state has the correct shape (batch_size, player_state_dim)
+                        player_state = player_state.unsqueeze(0)  # Add batch dimension
+
+                        state = (board_state, player_state)
+
+                        current_player_agent = self.game.player_agents[self.game.player_turn_index]
+                        possible_actions = current_player_agent.player._get_all_possible_actions_normal(self.game.board)
+                        action = self.rl_agent.get_action(self.game, current_player_agent.player, possible_actions)
+                        reward = self.calculate_reward(current_player_agent.player)
+
+                        # Convert next states to tensors
+                        next_board_state = torch.tensor(self.serialization.board, dtype=torch.float32)
+                        next_player_state = torch.tensor(player_state, dtype=torch.float32)  # Reuse flattened player_state
+                        next_state = (next_board_state, next_player_state)
+
+                        done = self.game.winning_player_index is not None
+
+                        self.rl_agent.store_experience(state, action, reward, next_state, done)
+                        self.rl_agent.train()
                 print(f"Player {self.game.winning_player_index + 1} wins!")
+                if self.rl_agent and self.model_path:
+                    torch.save(self.rl_agent.model.state_dict(), self.model_path)
+                    print(f"Model saved to {self.model_path}")
+
+    def calculate_reward(self, player: Player) -> float:
+        """Calculate reward based on player's progress, with higher rewards for wheat and ore."""
+        reward = 0
+
+        # Reward for victory points
+        reward += player.get_victory_points() * 5  # Reward for victory points
+
+        # Reward for resources, with higher weights for wheat and ore
+        resource_weights = {
+            Resource.GRAIN: .3,
+            Resource.ORE: .3,
+            Resource.BRICK: .1,
+            Resource.WOOD: .1,
+            Resource.SHEEP: .1,
+        }
+        # Calculate weighted sum of resources
+        for resource, amount in player.resources.items():
+            reward += amount * resource_weights.get(resource, 1)  # Use weight if defined, otherwise default to 1
+
+        return reward
 
     def calculate_sizes(self):
         info = pygame.display.Info()
@@ -655,7 +774,9 @@ class CatanUI:
         self.calculate_fonts()
         self.screen = pygame.display.set_mode(self.screen_size)
         pygame.display.set_caption("Settlers of Catan Board")
+
         self.game = self.game_generator()
+        self.initial_game_state = copy.deepcopy(self.game)
 
         running = True
         while running:
@@ -680,6 +801,7 @@ class CatanUI:
                     running = False
                 elif event.type == pygame.KEYDOWN and event.key == pygame.K_r:
                     self.game = self.game_generator()
+                    self.game = copy.deepcopy(self.initial_game_state)
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     self.handle_event(event, hover_vertex, hover_road)
                 else:
