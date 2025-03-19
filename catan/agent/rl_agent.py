@@ -84,14 +84,17 @@ class RLAgent:
             q_values = self.model.forward(board_state, player_state).detach().numpy().flatten()
             
             # Map Q-values to actions
-            action_idx = np.argmax(q_values)
-            if action_idx< len(possible_actions)-1:
-                return possible_actions[action_idx]  # Exploit (best action based on Q-values)
-            else:
-                print("Invalid action index++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
-                print("action: " +str(action_idx))
-                print("Possable actions: " + str(possible_actions))
-                return random.choice(possible_actions)  # Explore (random action)
+            valid_q_values = [q_values[i] for i in range(len(possible_actions))]
+            action_idx = np.argmax(valid_q_values)
+            return possible_actions[action_idx]
+            # action_idx = np.argmax(q_values)
+            # if action_idx< len(possible_actions)-1:
+            #     return possible_actions[action_idx]  # Exploit (best action based on Q-values)
+            # else:
+            #     print("Invalid action index++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+            #     print("action: " +str(action_idx))
+            #     print("Possable actions: " + str(possible_actions))
+            #     return random.choice(possible_actions)  # Explore (random action)
 
     def store_experience(self, state, action, reward, next_state, done):
         """Store the agent's experience in the replay buffer."""
