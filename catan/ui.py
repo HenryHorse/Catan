@@ -211,7 +211,8 @@ class CatanUI:
                 print("Player 2 Board State:", self.serialization.board[1])
 
                 # Store experience and train RL agent
-                if self.rl_agent:
+                if self.game.player_agents[self.game.player_turn_index] == 3:
+                    print(f'-------- RL AGENT  --------')
                     # Convert board state to tensor
                     board_state = torch.tensor(self.serialization.board, dtype=torch.float32)
 
@@ -238,6 +239,10 @@ class CatanUI:
 
                     self.rl_agent.store_experience(state, action, reward, next_state, done)
                     self.rl_agent.train()
+                    # Save the model 
+                    if self.rl_agent and self.model_path:
+                        torch.save(self.rl_agent.model.state_dict(), self.model_path)
+                        print(f"Model saved to {self.model_path}")
 
                 if self.game.winning_player_index is not None:
                     print(f"Player {self.game.winning_player_index + 1} wins!")
