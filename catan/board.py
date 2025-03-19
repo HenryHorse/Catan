@@ -390,3 +390,35 @@ class Board:
         closest_y = y1 + t * (y2 - y1)
 
         return (px - closest_x) ** 2 + (py - closest_y) ** 2 < threshold ** 2
+
+    def point_in_polygon(self, point: tuple[float, float], vertices: list[tuple[float, float]]) -> bool:
+        """Ray-casting algorithm to determine if point is inside the polygon defined by vertices."""
+        x, y = point
+        inside = False
+        n = len(vertices)
+        for i in range(n):
+            xi, yi = vertices[i]
+            xj, yj = vertices[(i + 1) % n]
+            if ((yi > y) != (yj > y)) and (x < (xj - xi) * (y - yi) / (yj - yi) + xi):
+                inside = not inside
+        return inside
+
+    def get_tile_at_pos(self, mouse_pos: tuple[float, float],
+                        hexagon_size: float,
+                        displacement: Point) -> Tile | None:
+        """
+        For each tile in the board, compute its hexagon polygon (using its center plus
+        the hexagon_vertex_displacements scaled by hexagon_size) and return the first tile
+        that contains the given mouse position.
+        """
+        for tile in self.tiles.values():
+            center = tile.get_screen_position(hexagon_size) + displacement
+            # Compute vertices for a regular hexagon
+            vertices = []
+            for disp in hexagon_vertex_displacements:
+                vertex = center + (disp * hexagon_size)
+                vertices.append((vertex.x, vertex.y))
+            if self.point_in_polygon(mouse_pos, vertices):
+                return tile
+        return None
+
