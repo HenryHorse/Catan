@@ -61,7 +61,7 @@ class RLAgent:
         self.replay_buffer = deque(maxlen=10000)
         self.action_mapper = ActionMapper()
 
-    def get_action_heuristic(self, game: 'Game', possible_actions: list[Action]) -> Action:
+    def get_action_heuristic(self, game: 'Game', possible_actions: list[Action], player: 'Player') -> Action:
             # The logic is straightforward: prioritize certain types of actions first, try others next. If it can't do anything, just end the turn
             # You can try swapping the order of the isinstance statements to see if one performs better than the other (i.e. prioritizing using dev cards early on)
             best_action = None
@@ -73,9 +73,9 @@ class RLAgent:
                 if isinstance(action, BuildCityAction):
                     score = self.evaluate_city_location(action.road_vertex, game)
                 if isinstance(action, BuildRoadAction):
-                    score = self.evaluate_road_location(action.road, game)
+                    score = self.evaluate_road_location(action.road, game, player)
                 if isinstance(action, TradeAction):
-                    score = self.evaluate_trade(action, game)
+                    score = self.evaluate_trade(action, game, player)
                 if isinstance(action, UseDevelopmentCardAction):
                     score = self.evaluate_dev_card(action.card, game)
                 if score > best_score:
@@ -87,7 +87,7 @@ class RLAgent:
 
             for action in possible_actions:
                 if isinstance(action, BuyDevelopmentCardAction):
-                    current_player = game.player_agents[self.player.index].player
+                    current_player = game.player_agents[player.index].player
                     if (current_player.resources[Resource.SHEEP] > 1
                             and current_player.resources[Resource.GRAIN] > 1
                             and current_player.resources[Resource.ORE] > 1):
@@ -135,22 +135,22 @@ class RLAgent:
 
         return score
 
-    def evaluate_road_location(self, road: Road, game: 'Game') -> int:
+    def evaluate_road_location(self, road: Road, game: 'Game', player: 'Player') -> int:
         score = 0
-        current_player = game.player_agents[self.player.index].player
+        current_player = game.player_agents[player.index].player
 
         for vertex in road.endpoints:
             if current_player.is_valid_settlement_location(vertex):
                 score += self.evaluate_settlement_location(vertex, game)
         return score
 
-    def evaluate_trade(self, trade_action: TradeAction, game: 'Game') -> int:
+    def evaluate_trade(self, trade_action: TradeAction, game: 'Game', player: 'Player') -> int:
         score = 0
-        most_needed_resource = self.get_most_needed_resource(game)
+        most_needed_resource = self.get_most_needed_resource(game, player)
         if most_needed_resource in trade_action.receiving:
             score += 10 # Reward for getting a required resource
             for resource in trade_action.giving:
-                if self.player.resources[resource] == 1:
+                if player.resources[resource] == 1:
                     score -= 10 # Punishment for giving up a resource player only has 1 of
         return score
 
@@ -167,7 +167,7 @@ class RLAgent:
                 score += 10
         return score
 
-    def get_most_needed_resource(self, game: 'Game') -> Resource:
+    def get_most_needed_resource(self, game: 'Game', player: 'Player') -> Resource:
         needed_resources = {
             BuildSettlementAction: [Resource.BRICK, Resource.WOOD, Resource.GRAIN, Resource.SHEEP],
             BuildCityAction: [Resource.ORE, Resource.ORE, Resource.ORE, Resource.GRAIN, Resource.GRAIN],
@@ -176,16 +176,16 @@ class RLAgent:
 
         # Given the order of iteration, this will prioritize settlements, then cities, then roads if we have 0 of the resources for those 3
         for action, resources in needed_resources.items():
-            possible_actions = self.player.get_all_possible_actions(game.board, game.game_phase == GamePhase.SETUP)
+            possible_actions = player.get_all_possible_actions(game.board, game.game_phase == GamePhase.SETUP)
             if action in possible_actions:
                 for resource in resources:
-                    if self.player.resources[resource] == 0:
+                    if player.resources[resource] == 0:
                         return resource
 
         # If we have at least 1 of every resource needed for settlements, cities, and roads, just pick the one we have the least of
-        return min(self.player.resources, key=self.player.resources.get)
+        return min(player.resources, key=player.resources.get)
 
-    def get_robber_placement(self, game: 'Game') -> CubeCoordinates:
+    def get_robber_placement(self, game: 'Game', player: 'Player') -> CubeCoordinates:
         highest_value_tile = None
         highest_value = -1
 
@@ -195,7 +195,7 @@ class RLAgent:
 
             num_dependents = 0
             for road_vertex in tile.adjacent_road_vertices:
-                if road_vertex.owner is not None and road_vertex.owner != self.player.index:
+                if road_vertex.owner is not None and road_vertex.owner != player.index:
                     num_dependents += 1
 
             if num_dependents > highest_value:
@@ -232,7 +232,7 @@ class RLAgent:
         """Select an action using epsilon-greedy strategy"""
         if random.random() < self.epsilon:
             print("Heuristic action selected on epsilon of: ",  self.epsilon)
-            return self.get_action_heuristic(game,possible_actions)
+            return self.get_action_heuristic(game,possible_actions, player)
         else:
             board_state, player_state = self.get_state(game, player)
             board_state = board_state.unsqueeze(0)  # Add batch dimension
