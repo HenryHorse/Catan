@@ -56,7 +56,7 @@ def load_or_create_model(model_path, board_channels, player_state_dim, action_di
 
 def main():
     args = parse_arguments()
-    serialization = BrickRepresentation(args.board_size, args.num_players, None, 1)  
+    serialization = BrickRepresentation(5, args.num_players, None, 1)  
     game = create_game(serialization)  
     serialization.game = game
 

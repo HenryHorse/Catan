@@ -136,7 +136,7 @@ class BrickRepresentation:
             action_flag: bool = False,
             actions: list = []):
         center_tile = center_tile or game.board.center_tile
-        center = center or (2 * self.size, self.size)
+        center = center or (self.width // 2, self.height // 2)
         visited = visited or set()
         if center in visited:
             return
