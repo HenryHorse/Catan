@@ -46,6 +46,7 @@ class QNetwork(nn.Module):
 
 def select_action(model, state, possible_actions, epsilon=0.1):
     if random.random() < epsilon:
+        print("random action selected on epsilon of: ",  epsilon)
         return random.choice(possible_actions)  # Exploration
     
     # Separate the image and structured parts of the state

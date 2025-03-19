@@ -142,14 +142,12 @@ class BrickRepresentation:
             return
         visited.add(center)
 
-        print(f"Serializing tile at center: {center}")
         self.serialize_tile(game, center_tile, center, action_flag, actions)
         for i, neighbor in enumerate(center_tile.adjacent_tiles):
             if neighbor is None:
                 continue
             dx, dy = BRICK_TILE_DISPLACEMENTS[i]
             new_center = (center[0] + dx, center[1] + dy)
-            print(f"Moving to neighbor at: {new_center}")
             self.recursive_serialize(game, neighbor, new_center, visited, action_flag, actions)
         
     def serialize_tile(self, game: Game, tile: Tile, center: tuple[int, int], action_flag: bool, actions):

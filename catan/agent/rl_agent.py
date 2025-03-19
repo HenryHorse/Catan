@@ -73,6 +73,7 @@ class RLAgent:
     def get_action(self, game: 'Game', player: 'Player', possible_actions: list[Action]):
         """Select an action using epsilon-greedy strategy"""
         if random.random() < self.epsilon:
+            print("random action selected on epsilon of: ",  self.epsilon)
             return random.choice(possible_actions)  # Explore (random action)
         else:
             board_state, player_state = self.get_state(game, player)
@@ -80,7 +81,7 @@ class RLAgent:
             player_state = player_state.unsqueeze(0)
             
             # Get Q-values from the model
-            q_values = self.model(board_state, player_state).detach().numpy().flatten()
+            q_values = self.model.forward(board_state, player_state).detach().numpy().flatten()
             
             # Map Q-values to actions
             action_idx = np.argmax(q_values)
