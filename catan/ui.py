@@ -240,6 +240,8 @@ class CatanUI:
                     done = self.game.winning_player_index is not None
 
                     self.rl_agent.store_experience(state, action, reward, next_state, done)
+
+                    print("training stuff")
                     self.rl_agent.train()
                     # Save the model 
                     if self.rl_agent and self.model_path:

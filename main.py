@@ -62,8 +62,8 @@ def main():
 
     # Initialize RL Agent
     board_channels = args.num_players + 1  # Number of players + 1 for board state
-    player_state_dim = 524  # Size of the flattened player_state
-    action_dim = 7  # Number of possible actions
+    player_state_dim = 1224  # Size of the flattened player_state
+    action_dim = 7  # Number of possible actions  
 
     # Load or create the model
     model = load_or_create_model("rl_Model_Save", board_channels, player_state_dim, action_dim)
@@ -74,5 +74,5 @@ def main():
     catan_ui.open_and_loop()
 
 
-if __name__ == '__main__':
+if __name__ == '__main__': 
     main()

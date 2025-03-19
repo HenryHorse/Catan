@@ -47,7 +47,7 @@ class RL_Agent(Agent):
 
 
 class RLAgent:
-    def __init__(self, model: QNetwork, gamma=0.99, epsilon=1.0, epsilon_decay=0.995, batch_size=32, learning_rate=0.001):
+    def __init__(self, model: QNetwork, gamma=0.99, epsilon=1.0, epsilon_decay=0.995, batch_size=12, learning_rate=0.001):
         self.model = model
         self.gamma = gamma
         self.epsilon = epsilon
@@ -85,7 +85,13 @@ class RLAgent:
             
             # Map Q-values to actions
             action_idx = np.argmax(q_values)
-            return possible_actions[action_idx]  # Exploit (best action based on Q-values)
+            if action_idx< len(possible_actions)-1:
+                return possible_actions[action_idx]  # Exploit (best action based on Q-values)
+            else:
+                print("Invalid action index++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+                print("action: " +str(action_idx))
+                print("Possable actions: " + str(possible_actions))
+                return random.choice(possible_actions)  # Explore (random action)
 
     def store_experience(self, state, action, reward, next_state, done):
         """Store the agent's experience in the replay buffer."""
@@ -110,6 +116,7 @@ class RLAgent:
     def train(self):
         """Train the agent based on experiences collected during the game."""
         if len(self.replay_buffer) < self.batch_size:
+            print("replay buff too small"+ " Buffer size: "+str(len(self.replay_buffer))+ " Batch size:  "+ str(self.batch_size))
             return  # Not enough experiences to train
 
         # Sample a random batch from the replay buffer
@@ -126,11 +133,11 @@ class RLAgent:
         dones = torch.tensor(dones, dtype=torch.float32)
 
         # Compute Q-values from the current state
-        current_q_values = self.model(board_states, player_states).gather(1, actions.unsqueeze(1)).squeeze(1)
+        current_q_values = self.model.forward(board_states, player_states).gather(1, actions.unsqueeze(1)).squeeze(1)
 
         # Compute the target Q-values using the Bellman equation
         with torch.no_grad():
-            next_q_values = self.model(next_board_states, next_player_states).max(1)[0]
+            next_q_values = self.model.forward(next_board_states, next_player_states).max(1)[0]
             target_q_values = rewards + self.gamma * next_q_values * (1 - dones)
 
         # Compute the loss (mean squared error)
@@ -143,6 +150,7 @@ class RLAgent:
 
         # Update epsilon (decay exploration rate)
         self.epsilon = max(self.epsilon * self.epsilon_decay, 0.01)
+        print("updated epsilon:" + str(self.epsilon))
 
 
 class ActionMapper:

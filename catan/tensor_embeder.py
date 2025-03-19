@@ -20,7 +20,7 @@ class QNetwork(nn.Module):
         self.fc2 = nn.Linear(hidden_dim, hidden_dim)
         
         # Final layer to output Q-values for each action
-        self.fc_action = nn.Linear(128 + hidden_dim, action_dim)
+        self.fc_action = nn.Linear(29696, action_dim)
     
     def forward(self, x_board, x_player):
         # Debugging: Print shapes
