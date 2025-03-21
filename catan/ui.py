@@ -15,6 +15,7 @@ from catan.constants import *
 from catan.game import GamePhase
 
 from globals import DEV_MODE
+from globals import NUM_GAMES
 
 # List of resources in fixed order for modal overlays.
 RESOURCE_ORDER = [Resource.WOOD, Resource.GRAIN, Resource.SHEEP, Resource.ORE, Resource.BRICK]
@@ -810,12 +811,12 @@ class CatanUI:
 
     def open_and_loop(self, doSimulate, train):
         if doSimulate:
-            num_games = 200
+            num_games = NUM_GAMES
             total_turns = 0
             win_counts = {}
             self.game = self.game_generator()
             self.initial_game_state = copy.deepcopy(self.game)
-            print("Starting simulation of 200 games...")
+            print("Starting simulation of", num_games, "games...")
             if train == 1:
                 print("Training enabled")
             for i in range(num_games):

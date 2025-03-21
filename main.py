@@ -2,6 +2,7 @@ import argparse
 import os
 import torch
 
+from globals import SELECTED_MODEL
 
 from catan.board import Board
 from catan.player import Player
@@ -26,10 +27,14 @@ def parse_arguments():
 def create_game() -> Game:
     board = Board(3)
 
+    # SAMPLES OF ALL AGENT TYPES
+    # agent_1 = RandomAgent(board, player_1)
+    # agent_1 = HeuristicAgent(board, player_1)
+    # agent_1 = RL_Agent(board, player_1)
+    # agent_1 = HumanAgent(board, player_1)
+
     player_1 = Player(0, (255, 0, 0))
     agent_1 = RL_Agent(board, player_1)
-    # agent_1 = RandomAgent(board, player_1)
-    # agent_1 = HumanAgent(board, player_1)
     player_2 = Player(1, (0, 0, 255))
     agent_2 = HeuristicAgent(board, player_2)
     player_3 = Player(2, (255, 255, 255))
@@ -73,11 +78,11 @@ def main():
     action_dim = 7  # Number of possible actions
 
     # Load or create the model
-    model = load_or_create_model("rl_Model_Save_75QNN_25H", board_channels, player_state_dim, action_dim)
+    model = load_or_create_model(SELECTED_MODEL, board_channels, player_state_dim, action_dim)
     rl_agent = RLAgent(model)
 
     # Pass RL Agent to the UI
-    catan_ui = CatanUI(lambda: game, serialization=serialization, rl_agent=rl_agent, model_path="rl_Model_Save_75QNN_25H")
+    catan_ui = CatanUI(lambda: game, serialization=serialization, rl_agent=rl_agent, model_path=SELECTED_MODEL)
     catan_ui.open_and_loop(doSimulate=args.simulate, train=args.train)
 
 
