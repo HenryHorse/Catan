@@ -2,6 +2,7 @@ import argparse
 import os
 import torch
 
+from globals import SELECTED_MODEL
 
 from catan.board import Board
 from catan.player import Player
@@ -16,24 +17,30 @@ from catan.serialization import BrickRepresentation
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Settlers of Catan board visualizer")
+    # TODO: Implement these
     parser.add_argument("--board-size", type=int, default=3, help="Size of the board (default: 3)")
-    # TODO: make this do something?
     parser.add_argument("--num-players", type=int, default=4, help="Number of players (default: 4)")
+    parser.add_argument("--simulate", type=int, default=0, help="Find simulation statistics, 0 or 1 (default: 0)")
+    parser.add_argument("--train", type=int, default=0, help="Perform training, 0 or 1 (default: 0)" )
     return parser.parse_args()
 
-def create_game(serialization) -> Game:
+def create_game() -> Game:
     board = Board(3)
 
-    player_1 = Player(0, (255, 0, 0))
+    # SAMPLES OF ALL AGENT TYPES
     # agent_1 = RandomAgent(board, player_1)
-    agent_1 = HeuristicAgent(board, player_1)
+    # agent_1 = HeuristicAgent(board, player_1)
+    # agent_1 = RL_Agent(board, player_1)
     # agent_1 = HumanAgent(board, player_1)
+
+    player_1 = Player(0, (255, 0, 0))
+    agent_1 = RL_Agent(board, player_1)
     player_2 = Player(1, (0, 0, 255))
-    agent_2 = RandomAgent(board, player_2)
+    agent_2 = HeuristicAgent(board, player_2)
     player_3 = Player(2, (255, 255, 255))
-    agent_3 = RandomAgent(board, player_3)
+    agent_3 = HeuristicAgent(board, player_3)
     player_4 = Player(3, (255, 102, 0))
-    agent_4 = RL_Agent(board, player_4)
+    agent_4 = HeuristicAgent(board, player_4)
 
 
 
@@ -60,8 +67,9 @@ def load_or_create_model(model_path, board_channels, player_state_dim, action_di
 
 def main():
     args = parse_arguments()
-    serialization = BrickRepresentation(5, args.num_players, None, 1)
-    game = create_game(serialization)
+    game = create_game()
+    # Hard coded to 4 players since no argument functionality at this moment
+    serialization = BrickRepresentation(5, 4, None, 1)
     serialization.game = game
 
     # Initialize RL Agent
@@ -70,12 +78,12 @@ def main():
     action_dim = 7  # Number of possible actions
 
     # Load or create the model
-    model = load_or_create_model("rl_Model_Save", board_channels, player_state_dim, action_dim)
+    model = load_or_create_model(SELECTED_MODEL, board_channels, player_state_dim, action_dim)
     rl_agent = RLAgent(model)
 
     # Pass RL Agent to the UI
-    catan_ui = CatanUI(lambda: game, serialization=serialization, rl_agent=rl_agent, model_path="rl_Model_Save")
-    catan_ui.open_and_loop()
+    catan_ui = CatanUI(lambda: game, serialization=serialization, rl_agent=rl_agent, model_path=SELECTED_MODEL)
+    catan_ui.open_and_loop(doSimulate=args.simulate, train=args.train)
 
 
 if __name__ == '__main__':

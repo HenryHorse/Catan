@@ -9,6 +9,8 @@ from catan.constants import *
 if TYPE_CHECKING:
     from catan.game import Game, GamePhase
 
+from globals import DEV_MODE
+
 
 @dataclass
 class EndTurnAction:
@@ -350,7 +352,8 @@ class Player:
     
     # returns whether the player has ended their turn
     def perform_action(self, action: Action, board: Board, game: 'Game') -> bool:
-        print(f'Player {self.index + 1} performs action {action}')
+        if DEV_MODE:
+            print(f'Player {self.index + 1} performs action {action}')
         if isinstance(action, EndTurnAction):
             return True
         elif isinstance(action, BuildSettlementAction):

@@ -5,6 +5,8 @@ import numpy as np
 import random
 from collections import deque
 
+from globals import DEV_MODE
+
 
 class QNetwork(nn.Module):
     def __init__(self, board_channels, player_state_dim, action_dim, hidden_dim=128):
@@ -24,8 +26,9 @@ class QNetwork(nn.Module):
     
     def forward(self, x_board, x_player):
         # Debugging: Print shapes
-        print(f"x_board shape: {x_board.shape}")
-        print(f"x_player shape: {x_player.shape}")
+        if DEV_MODE:
+            print(f"x_board shape: {x_board.shape}")
+            print(f"x_player shape: {x_player.shape}")
 
         # Process board state
         x_board = torch.relu(self.conv1(x_board))
@@ -46,7 +49,8 @@ class QNetwork(nn.Module):
 
 def select_action(model, state, possible_actions, epsilon=0.1):
     if random.random() < epsilon:
-        print("random action selected on epsilon of: ",  epsilon)
+        if DEV_MODE:
+            print("random action selected on epsilon of: ",  epsilon)
         return random.choice(possible_actions)  # Exploration
     
     # Separate the image and structured parts of the state
