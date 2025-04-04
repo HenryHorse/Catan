@@ -59,12 +59,24 @@ class BrickRepresentation:
         return flat_list
     
     def reinitialize(self):
-        self.player_states = self.player_states = [
-            [0, 0, [[0 for _ in range(self.width)] for _ in range(self.height)], 0, [[0 for _ in range(self.width)] for _ in range(self.height)],
-            0, [[0 for _ in range(self.width)] for _ in range(self.height)], 0, 0, [[0 for _ in range(self.width)] for _ in range(self.height)],
-            0, [0, 0, 0, 0, 0], [[0 for _ in range(self.width)] for _ in range(self.height)]], 
-            *[[[0] * 13 for _ in range(self.num_players)]], 
-            [0] * 5]
+        self.player_states = [
+        [0], # end turn
+        [0], # buy dev card
+        [0], # year of plenty
+        [0], # monopoly card
+        [0], # victory point card
+        [0,0,0,0,0], # 4:1 bank trade 1 option per resouce 
+        [[[0, #Road 
+           0, #settlment
+           0, #city
+           0, #dev card: Road
+           0, #dev card: Knight card
+           [[0,0],[0,0,0,0,0]], # harbor trade [[rate: 2:1/3:1][resource 1-5]]
+           ] for _ in range(self.width)] for _ in range(self.height)],
+        [[[0] * 13 for _ in range(self.num_players)]],
+        # Resources for each player (Wood, Grain, Sheep, Ore, Brick) + 
+                                                # Rem Roads + Rem Cit + Rem Sett + Vict Points + If Long Road + Length Long Road + If Larg Arm + Size Arm
+        ]
         
     def recursive_serialize_for_player_states(
             self,
@@ -92,16 +104,32 @@ class BrickRepresentation:
         for act in actions:
             if isinstance(act, EndTurnAction):
                 self.player_states[0][0] = 1
-            elif isinstance(act, BuildSettlementAction): # 0/1 and whole map copy
-                self.player_states[0][1] = 1
+            elif isinstance(act, BuildSettlementAction): 
+                self.player_states[0][6][] = 1
             elif isinstance(act, BuildCityAction): # 0/1 and whole map copy
-                self.player_states[0][3] = 1
+                self.player_states[0][6][] = 1
             elif isinstance(act, BuildRoadAction): # 0/1 and whole map copy
-                self.player_states[0][5] = 1
+                self.player_states[0][6][] = 1
             elif isinstance(act, BuyDevelopmentCardAction): # Just 0/1
-                self.player_states[0][7] = 1
+                self.player_states[0][1] = 1
             elif isinstance(act, UseDevelopmentCardAction):
-                self.player_states[0][8] = 1
+                dev_card_type = act.card.name
+                match dev_card_type:
+                    case KNIGHT:
+                        self.player_states[0][8] = 1
+                        break
+                    case ROAD_BUILDING:
+                        self.player_states[0][8] = 1
+                        break
+                    case YEAR_OF_PLENTY:
+                        self.player_states[0][8] = 1
+                        break
+                    case MONOPOLY:
+                        self.player_states[0][8] = 1
+                        break
+                    case VICTORY_POINT:
+                        self.player_states[0][8] = 1
+                        break
             elif isinstance(act, TradeAction):
                 self.player_states[0][10] = 1
                 # Only encode 4:1 trades (I could be wrong on this)
