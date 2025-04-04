@@ -31,7 +31,10 @@ class BrickRepresentation:
         self.board = [[[0 for _ in range(self.width)] for _ in range(self.height)] for _ in range(num_players + 1)]
         self.player_states = [
         [0], # end turn
-        [0], #buy dev card
+        [0], # buy dev card
+        [0], # year of plenty
+        [0], # monopoly card
+        [0], # victory point card
         [0,0,0,0,0], # 4:1 bank trade 1 option per resouce 
         [[[0, #Road 
            0, #settlment
@@ -43,7 +46,6 @@ class BrickRepresentation:
         [[[0] * 13 for _ in range(self.num_players)]],
         # Resources for each player (Wood, Grain, Sheep, Ore, Brick) + 
                                                 # Rem Roads + Rem Cit + Rem Sett + Vict Points + If Long Road + Length Long Road + If Larg Arm + Size Arm
-        [0] * 5 # Array of dev cards of player at given time           
         ]
 
     def flatten_nested_list(self, nested_list):
