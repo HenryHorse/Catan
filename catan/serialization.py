@@ -105,30 +105,30 @@ class BrickRepresentation:
             if isinstance(act, EndTurnAction):
                 self.player_states[0][0] = 1
             elif isinstance(act, BuildSettlementAction): 
-                self.player_states[0][6][] = 1
+                self.player_states[0][6][][] = 1
             elif isinstance(act, BuildCityAction): # 0/1 and whole map copy
-                self.player_states[0][6][] = 1
+                self.player_states[0][6][][] = 1
             elif isinstance(act, BuildRoadAction): # 0/1 and whole map copy
-                self.player_states[0][6][] = 1
+                self.player_states[0][6][][] = 1
             elif isinstance(act, BuyDevelopmentCardAction): # Just 0/1
                 self.player_states[0][1] = 1
             elif isinstance(act, UseDevelopmentCardAction):
                 dev_card_type = act.card.name
                 match dev_card_type:
                     case KNIGHT:
-                        self.player_states[0][8] = 1
+                        self.player_states[0][6][][] = 1
                         break
                     case ROAD_BUILDING:
-                        self.player_states[0][8] = 1
+                        self.player_states[0][6][][] = 1
                         break
                     case YEAR_OF_PLENTY:
-                        self.player_states[0][8] = 1
+                        self.player_states[0][2] = 1
                         break
                     case MONOPOLY:
-                        self.player_states[0][8] = 1
+                        self.player_states[0][3] = 1
                         break
                     case VICTORY_POINT:
-                        self.player_states[0][8] = 1
+                        self.player_states[0][4] = 1
                         break
             elif isinstance(act, TradeAction):
                 self.player_states[0][10] = 1
