@@ -38,14 +38,14 @@ class BrickRepresentation:
            0, #city
            0, #dev card: Road
            0, #dev card: Knight card
-           0, # harbor trade
+           [[0,0],[0,0,0,0,0]], # harbor trade [[rate: 2:1/3:1][resource 1-5]]
            ] for _ in range(self.width)] for _ in range(self.height)],
         [[[0] * 13 for _ in range(self.num_players)]],
         # Resources for each player (Wood, Grain, Sheep, Ore, Brick) + 
                                                 # Rem Roads + Rem Cit + Rem Sett + Vict Points + If Long Road + Length Long Road + If Larg Arm + Size Arm
         [0] * 5 # Array of dev cards of player at given time           
         ]
-        
+
     def flatten_nested_list(self, nested_list):
         """Recursively flatten a nested list into a 1D list."""
         flat_list = []
