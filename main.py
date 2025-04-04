@@ -7,7 +7,7 @@ from globals import SELECTED_MODEL
 from catan.board import Board
 from catan.player import Player
 from catan.agent.random import RandomAgent
-from catan.agent.rl_agent import RL_Agent, RLAgent, QNetwork
+from catan.agent.rl_agent import RL_Agent, RL_Model, QNetwork
 
 from catan.agent.human import HumanAgent
 from catan.agent.heuristic import HeuristicAgent
@@ -79,7 +79,7 @@ def main():
 
     # Load or create the model
     model = load_or_create_model(SELECTED_MODEL, board_channels, player_state_dim, action_dim)
-    rl_agent = RLAgent(model)
+    rl_agent = RL_Model(model)
 
     # Pass RL Agent to the UI
     catan_ui = CatanUI(lambda: game, serialization=serialization, rl_agent=rl_agent, model_path=SELECTED_MODEL)

@@ -37,7 +37,7 @@ class RL_Agent(Agent):
         self.model = QNetwork(board_channels, player_state_dim, action_dim)
         
         # Initialize the RLAgent
-        self.rl_agent = RLAgent(self.model)
+        self.rl_agent = RL_Model(self.model)
 
     def get_action(self, game: 'Game', possible_actions: list[Action]) -> Action:
         return self.rl_agent.get_action(game, self.player, possible_actions)
@@ -52,7 +52,7 @@ class RL_Agent(Agent):
         return random.choice(options)
 
 
-class RLAgent:
+class RL_Model:
     def __init__(self, model: QNetwork, gamma=0.99, epsilon=1.0, epsilon_decay=0.99995, batch_size=12, learning_rate=0.001):
         self.model = model
         self.gamma = gamma

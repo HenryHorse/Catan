@@ -20,7 +20,7 @@ from globals import NUM_GAMES
 # List of resources in fixed order for modal overlays.
 RESOURCE_ORDER = [Resource.WOOD, Resource.GRAIN, Resource.SHEEP, Resource.ORE, Resource.BRICK]
 from catan.serialization import BrickRepresentation
-from catan.agent.rl_agent import RLAgent
+from catan.agent.rl_agent import RL_Model
 from catan.player import Player
 
 import copy
@@ -30,7 +30,7 @@ class CatanUI:
     game: Game | None
     game_generator: Callable[[], Game]
     screen: pygame.Surface | None
-    rl_agent: RLAgent | None
+    rl_agent: RL_Model | None
     model_path: str | None
 
     screen_width: int
@@ -49,7 +49,7 @@ class CatanUI:
     stats_title_font: pygame.font.Font
     stats_font: pygame.font.Font
 
-    def __init__(self, game_generator: Callable[[], Game], serialization: BrickRepresentation, rl_agent: RLAgent = None, model_path: str = None):
+    def __init__(self, game_generator: Callable[[], Game], serialization: BrickRepresentation, rl_agent: RL_Model = None, model_path: str = None):
         self.game = None
         self.game_generator = game_generator
         self.screen = None

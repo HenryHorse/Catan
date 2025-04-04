@@ -3,7 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 import random
-from collections import deque
 
 from globals import DEV_MODE
 
