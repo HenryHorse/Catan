@@ -113,21 +113,21 @@ class BrickRepresentation:
             elif isinstance(act, BuyDevelopmentCardAction): # Just 0/1
                 self.player_states[0][1] = 1
             elif isinstance(act, UseDevelopmentCardAction):
-                dev_card_type = act.card.name
+                dev_card_type = act.card
                 match dev_card_type:
-                    case KNIGHT:
+                    case DevelopmentCard.KNIGHT:
                         self.player_states[0][6][][] = 1
                         break
-                    case ROAD_BUILDING:
+                    case DevelopmentCard.ROAD_BUILDING:
                         self.player_states[0][6][][] = 1
                         break
-                    case YEAR_OF_PLENTY:
+                    case DevelopmentCard.YEAR_OF_PLENTY:
                         self.player_states[0][2] = 1
                         break
-                    case MONOPOLY:
+                    case DevelopmentCard.MONOPOLY:
                         self.player_states[0][3] = 1
                         break
-                    case VICTORY_POINT:
+                    case DevelopmentCard.VICTORY_POINT:
                         self.player_states[0][4] = 1
                         break
             elif isinstance(act, TradeAction):
