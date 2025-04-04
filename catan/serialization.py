@@ -30,14 +30,22 @@ class BrickRepresentation:
         self.agent_player_num = agent_player_num
         self.board = [[[0 for _ in range(self.width)] for _ in range(self.height)] for _ in range(num_players + 1)]
         self.player_states = [
-            [0, 0, [[0 for _ in range(self.width)] for _ in range(self.height)], 0, [[0 for _ in range(self.width)] for _ in range(self.height)],
-            0, [[0 for _ in range(self.width)] for _ in range(self.height)], 0, 0, [[0 for _ in range(self.width)] for _ in range(self.height)],
-            0, [0, 0, 0, 0, 0], [[0 for _ in range(self.width)] for _ in range(self.height)]], # Actions for current player 
-            *[[[0] * 13 for _ in range(self.num_players)]], # Resources for each player (Wood, Grain, Sheep, Ore, Brick) + 
-                                                    # Rem Roads + Rem Cit + Rem Sett + Vict Points + If Long Road + Length Long Road + If Larg Arm + Size Arm
-            [0] * 5 # Array of dev cards of player at given time
+        [0], # end turn
+        [0], #buy dev card
+        [0,0,0,0,0], # 4:1 bank trade 1 option per resouce 
+        [[[0, #Road 
+           0, #settlment
+           0, #city
+           0, #dev card: Road
+           0, #dev card: Knight card
+           0, # harbor trade
+           ] for _ in range(self.width)] for _ in range(self.height)],
+        [[[0] * 13 for _ in range(self.num_players)]],
+        # Resources for each player (Wood, Grain, Sheep, Ore, Brick) + 
+                                                # Rem Roads + Rem Cit + Rem Sett + Vict Points + If Long Road + Length Long Road + If Larg Arm + Size Arm
+        [0] * 5 # Array of dev cards of player at given time           
         ]
-
+        
     def flatten_nested_list(self, nested_list):
         """Recursively flatten a nested list into a 1D list."""
         flat_list = []
