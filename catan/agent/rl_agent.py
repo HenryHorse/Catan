@@ -10,7 +10,7 @@ import torch
 import torch.optim as optim
 import numpy as np
 from collections import deque
-from catan.tensor_embeder import QNetwork
+from catan.QNN import QNetwork
 from catan.serialization import BrickRepresentation
 
 
