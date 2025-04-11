@@ -7,7 +7,7 @@ import torch
 
 from catan.agent.random import RandomAgent
 from catan.agent.human import HumanAgent
-from catan.board import DevelopmentCard, Harbor, RoadVertex
+from catan.board import DevelopmentCard, Harbor, RoadVertex, Board
 from catan.game import Game
 from catan.game import GamePhase
 from catan.util import Point
@@ -177,6 +177,7 @@ class CatanUI:
             return
         if (robber_tile := self.game.board.get_robber_tile()) is not None:
             pos = robber_tile.get_screen_position(self.hexagon_size) + self.displacement
+            pos = pos - Point(20, 20)
             pygame.draw.circle(self.screen, BROWN, pos.to_int_tuple(), 12)
 
     def draw_turn_info(self):
@@ -209,6 +210,10 @@ class CatanUI:
             header_surface = self.stats_title_font.render(header_text, True, player.color)
             self.screen.blit(header_surface, (header_x, header_y))
 
+            player_type_text = str(pa.agent.__class__.__name__)
+            player_type_surface = self.stats_font.render(player_type_text, True, player.color)
+            self.screen.blit(player_type_surface, (header_x, header_y + 30))
+
             lr_has = player.has_longest_road
             la_has = player.has_largest_army
             lr_color = GREEN if lr_has else RED
@@ -219,7 +224,7 @@ class CatanUI:
             la_surface = self.stats_font.render("Largest Army", True, la_color)
             self.screen.blit(la_surface, (status_x, header_y + 20))
 
-            header_y += header_surface.get_height() + 5
+            header_y += header_surface.get_height() + 30
 
             vp_text = f"VP: {player.get_victory_points()}"
             vp_surface = self.stats_font.render(vp_text, True, BLACK)
@@ -236,6 +241,8 @@ class CatanUI:
                 res_surface = self.stats_font.render(res_text, True, BLACK)
                 self.screen.blit(res_surface, (left_col_x + 5, res_y))
                 res_y += res_surface.get_height() + 2
+
+            header_y += header_surface.get_height() - 60
 
             right_col_x = panel_x + stats_rect.width // 4 + panel_padding
             dev_y = header_y
@@ -854,6 +861,9 @@ class CatanUI:
                     print(f"Game {i+1} finished in {turns} turns. Winner: Player {winner + 1}")
                 self.game = self.game_generator()
                 self.game = copy.deepcopy(self.initial_game_state)
+                self.game.board = Board(3)
+                self.game.board.initialize_tile_info()
+                self.game.board.set_harbors()
             avg_turns = total_turns / num_games
             print("\nSimulation complete")
             print(f"Average number of turns: {avg_turns:.2f}")
@@ -902,6 +912,9 @@ class CatanUI:
                 elif event.type == pygame.KEYDOWN and event.key == pygame.K_r:
                     self.game = self.game_generator()
                     self.game = copy.deepcopy(self.initial_game_state)
+                    self.game.board = Board(3)
+                    self.game.board.initialize_tile_info()
+                    self.game.board.set_harbors()
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     self.handle_event(event, hover_vertex, hover_road)
                 else:

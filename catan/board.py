@@ -314,24 +314,64 @@ class Board:
             tile.adjacent_road_vertices[vert_2].harbor = harbor
 
     def initialize_tile_info(self):
-        resources_remaining: dict[Resource, int] = {}
-
-        for _, resource in zip(range(len(self.tiles) - 1), itertools.cycle(Resource)):
-            resources_remaining[resource] = resources_remaining.get(resource, 0) + 1
+        total_tiles = len(self.tiles)
         
-        # TODO: find a way to not hardcode this??? idk
+        desert_tile = random.choice(list(self.tiles.values()))
+        desert_tile.number = 0
+        desert_tile.has_robber = True
+
         numbers = [2, 3, 3, 4, 4, 5, 5, 6, 6, 8, 8, 9, 9, 10, 10, 11, 11, 12]
 
+        resources_remaining: dict[Resource, int] = {}
+
+        for _, resource in zip(range(total_tiles - 1), itertools.cycle(Resource)):
+            resources_remaining[resource] = resources_remaining.get(resource, 0) + 1
+
         for tile in self.tiles.values():
-            if len(resources_remaining) > 0:
-                tile.resource = random.choice(list(resources_remaining.keys()))
-                resources_remaining[tile.resource] -= 1
-                if resources_remaining[tile.resource] == 0:
-                    del resources_remaining[tile.resource]
-                tile.number = random.choice(numbers)
-                numbers.remove(tile.number)
-            else:
-                tile.has_robber = True
+            if tile is desert_tile:
+                continue
+            tile.number = random.choice(numbers)
+            numbers.remove(tile.number)
+            tile.resource = random.choice(list(resources_remaining.keys()))
+            resources_remaining[tile.resource] -= 1
+            if resources_remaining[tile.resource] == 0:
+                del resources_remaining[tile.resource]
+
+        def is_valid_placement(tile, new_number, swap_partner=None, partner_new_number=None):
+            for neighbor in tile.adjacent_tiles:
+                neighbor_number = partner_new_number if neighbor == swap_partner else getattr(neighbor, 'number', None)
+                if neighbor_number is not None:
+                    if new_number in (6, 8) and neighbor_number in (6, 8):
+                        return False
+            return True
+
+        def swap_tiles(tile1, tile2):
+            tile1.number, tile2.number = tile2.number, tile1.number
+            tile1.resource, tile2.resource = tile2.resource, tile1.resource
+            tile1.has_robber, tile2.has_robber = tile2.has_robber, tile1.has_robber
+
+        # Loop to fix conflicts where a 6 or 8 is adjacent to another 6 or 8.
+        conflict_found = True
+        while conflict_found:
+            conflict_found = False
+            for tile in self.tiles.values():
+                if getattr(tile, 'number', None) in (6, 8):
+                    for adj in tile.adjacent_tiles:
+                        if getattr(adj, 'number', None) in (6, 8):
+                            candidate_tiles = []
+                            for candidate in self.tiles.values():
+                                if candidate == tile:
+                                    continue
+                                if (is_valid_placement(tile, candidate.number, swap_partner=candidate, partner_new_number=tile.number) and
+                                    is_valid_placement(candidate, tile.number, swap_partner=tile, partner_new_number=candidate.number)):
+                                    candidate_tiles.append(candidate)
+                            if candidate_tiles:
+                                chosen = random.choice(candidate_tiles)
+                                swap_tiles(tile, chosen)
+                                conflict_found = True
+                                break
+                    if conflict_found:
+                        break                    
     
     def get_robber_tile(self) -> Tile | None:
         for tile in self.tiles.values():
