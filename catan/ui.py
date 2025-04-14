@@ -49,6 +49,9 @@ class CatanUI:
     stats_title_font: pygame.font.Font
     stats_font: pygame.font.Font
 
+    steal_candidates: list[int] = []
+    steal_modal_rects: list[tuple[pygame.Rect, int]] = []
+
     def __init__(self, game_generator: Callable[[], Game], serialization: BrickRepresentation, rl_agent: RL_Model = None, model_path: str = None):
         self.game = None
         self.game_generator = game_generator
@@ -319,9 +322,11 @@ class CatanUI:
                                                panel_rect.width // 2,
                                                panel_rect.height)
                 self.draw_trade_panel(trade_panel_rect)
-        # If a pending special dev card action is active (MONOPOLY or YEAR_OF_PLENTY), draw the modal overlay.
+
         if self.pending_dev_action in ("MONOPOLY", "YEAR_OF_PLENTY"):
             self.draw_modal_overlay()
+        elif self.pending_dev_action == "KNIGHT_STEAL":
+            self.draw_steal_modal()
 
     def draw_trade_panel(self, panel_rect: pygame.Rect):
         num_rows = 5
@@ -463,8 +468,36 @@ class CatanUI:
         # Save the modal rectangle positions for use in click detection.
         self.modal_rects = [pygame.Rect(modal_x + i * (option_width + gap), modal_y, option_width, modal_height) for i in range(num_options)]
 
+    def draw_steal_modal(self):
+        overlay = pygame.Surface(self.screen_size)
+        overlay.set_alpha(180)
+        overlay.fill((100, 100, 100))
+        self.screen.blit(overlay, (0, 0))
+
+        modal_width = self.board_area_width * 0.5
+        modal_height = 100
+        modal_x = (self.board_area_width - modal_width) / 2
+        modal_y = (self.board_area_height - modal_height) / 2
+
+        num_candidates = len(self.steal_candidates)
+        if num_candidates == 0:
+            self.pending_dev_action = None
+            return
+
+        gap = 10
+        option_width = (modal_width - (num_candidates - 1) * gap) / num_candidates
+        self.steal_modal_rects = []
+        for i, candidate in enumerate(self.steal_candidates):
+            rect = pygame.Rect(modal_x + i * (option_width + gap), modal_y, option_width, modal_height)
+            candidate_color = self.game.player_agents[candidate].player.color
+            pygame.draw.rect(self.screen, candidate_color, rect)
+            pygame.draw.rect(self.screen, BLACK, rect, 2)
+            label = self.stats_font.render(f"P{candidate + 1}", True, BLACK)
+            label_rect = label.get_rect(center=rect.center)
+            self.screen.blit(label, label_rect)
+            self.steal_modal_rects.append((rect, candidate))
+
     def get_resource_from_modal(self, pos) -> Resource | None:
-        # Check if the click position is inside any modal rect.
         for rect, res in zip(self.modal_rects, RESOURCE_ORDER):
             if rect.collidepoint(pos):
                 return res
@@ -501,26 +534,51 @@ class CatanUI:
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     tile = self.game.board.get_tile_at_pos(mouse_pos, self.hexagon_size, self.displacement)
                     if tile is not None:
-                        self.game.board.move_robber(tile)
+                        for t in self.game.board.tiles.values():
+                            t.has_robber = (t == tile)
                         if DEV_MODE:
-                            print("Robber moved. Now select a settlement/city on that tile to steal from.")
-                        self.pending_dev_action = "KNIGHT_STEAL"
-                return
+                            print(f"Robber moved to tile at {tile.cube_coords}")
 
+                        candidates = []
+                        for vertex in tile.adjacent_road_vertices:
+                            if vertex.owner is not None and vertex.owner != current_player.player.index:
+                                if vertex.owner not in candidates:
+                                    candidates.append(vertex.owner)
+                        if not candidates:
+                            if DEV_MODE:
+                                print("No opponents with buildings on this tile – nothing to steal.")
+                            self.pending_dev_action = None
+                        else:
+                            self.steal_candidates = candidates
+                            self.pending_dev_action = "KNIGHT_STEAL"
+                            if DEV_MODE:
+                                for candidate in candidates:
+                                    print("Can steal from", (candidate + 1))
+                    return
+
+            # --- For Knight steal phase: using the modal to choose a target ---
             elif self.pending_dev_action == "KNIGHT_STEAL":
                 if event.type == pygame.MOUSEBUTTONDOWN:
-                    # Here, assume get_building_at_pos returns the settlement/city clicked on.
-                    target = self.game.board.get_building_at_pos(mouse_pos, self.hexagon_size, self.displacement)
-                    if target is not None and target.owner is not None and target.owner != current_player.player.index:
-                        try:
-                            stolen = self.game.player_agents[target.owner].player.take_random_resources(1)
-                            current_player.player.give_resource(stolen[0])
-                            if DEV_MODE:
-                                print(f"Stolen resource: {stolen[0]}")
-                        except Exception as e:
-                            if DEV_MODE:
-                                print(f"Error during steal: {e}")
-                        self.pending_dev_action = None
+                    for rect, candidate in self.steal_modal_rects:
+                        if rect.collidepoint(mouse_pos):
+                            target_player = self.game.player_agents[candidate].player
+                            if target_player.get_resource_count() == 0:
+                                if DEV_MODE:
+                                    print(f"Player {candidate+1} has no resources to steal.")
+                            else:
+                                try:
+                                    stolen_resources = target_player.take_random_resources(1)
+                                    if stolen_resources:
+                                        stolen = stolen_resources[0]
+                                        current_player.player.give_resource(stolen, 1)
+                                        if DEV_MODE:
+                                            print(f"Human Player {current_player.player.index + 1} steals {stolen} from Player {candidate + 1}")
+                                except Exception as e:
+                                    if DEV_MODE:
+                                        print(f"Error during steal: {e}")
+                            self.pending_dev_action = None
+                            self.steal_modal_rects = []
+                            return
                 return
 
             elif self.pending_dev_action == "ROAD_BUILDER":
@@ -593,20 +651,29 @@ class CatanUI:
                                             self.pending_dev_action = "KNIGHT"
                                             if DEV_MODE:
                                                 print("Knight card activated. Click a tile to move the robber.")
+                                            current_player.player.unplayed_dev_cards.remove(DevelopmentCard.KNIGHT)
+                                            current_player.player.played_dev_cards.append(DevelopmentCard.KNIGHT)
                                         elif card == DevelopmentCard.ROAD_BUILDING:
                                             self.pending_dev_action = "ROAD_BUILDER"
                                             self.pending_dev_data = {"roads_built": 0}
                                             if DEV_MODE:
                                                 print("Road Builder activated. Build 2 free roads by clicking valid locations.")
+                                            current_player.player.unplayed_dev_cards.remove(DevelopmentCard.ROAD_BUILDING)
+                                            current_player.player.played_dev_cards.append(DevelopmentCard.ROAD_BUILDING)
+                                            
                                         elif card == DevelopmentCard.MONOPOLY:
                                             self.pending_dev_action = "MONOPOLY"
                                             if DEV_MODE:
                                                 print("Monopoly activated. Click on a resource square (modal) to steal all of that resource.")
+                                            current_player.player.unplayed_dev_cards.remove(DevelopmentCard.MONOPOLY)
+                                            current_player.player.played_dev_cards.append(DevelopmentCard.MONOPOLY)
                                         elif card == DevelopmentCard.YEAR_OF_PLENTY:
                                             self.pending_dev_action = "YEAR_OF_PLENTY"
                                             self.pending_dev_data = {"clicks": 0}
                                             if DEV_MODE:
                                                 print("Year of Plenty activated. Click twice on resource squares to gain 2 resources.")
+                                            current_player.player.unplayed_dev_cards.remove(DevelopmentCard.YEAR_OF_PLENTY)
+                                            current_player.player.played_dev_cards.append(DevelopmentCard.YEAR_OF_PLENTY)
                                     except Exception as e:
                                         if DEV_MODE:
                                             print(e)
