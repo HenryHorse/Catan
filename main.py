@@ -20,8 +20,8 @@ def parse_arguments():
     parser.add_argument("--board-size", type=int, default=3, help="Size of the board (default: 3)")
     parser.add_argument("--num-players", type=int, default=4, help="Number of players (default: 4)")
     parser.add_argument("--players", type=str, default="RHNR", help="Player types, Human = U, Random = R, Heuristic = H, RL_Agent = N")
-    parser.add_argument("--sim", type=int, default=0, help="Find simulation statistics, 0 or 1 (default: 0)")
-    parser.add_argument("--train", type=int, default=0, help="Perform training, 0 or 1 (default: 0)" )
+    parser.add_argument("--sim", action="store_true", help="Enable simulation statistics")
+    parser.add_argument("--train", action="store_true", help="Enable training")
     return parser.parse_args()
 
 

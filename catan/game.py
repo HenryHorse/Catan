@@ -4,7 +4,7 @@ from enum import Enum
 from typing import Callable
 
 from catan.agent.human import HumanAgent
-from catan.board import Board
+from catan.board import Board, RoadVertex
 from catan.player import Player
 from catan.agent import Agent
 
@@ -163,6 +163,15 @@ class Game:
             3
         )
 
+    def award_initial_resources(self, player: Player, settlement: RoadVertex):
+        adjacent_tiles = [tile for tile in self.board.tiles.values() 
+                          if settlement in tile.adjacent_road_vertices]
+        for tile in adjacent_tiles:
+            if tile.resource is not None:
+                player.give_resource(tile.resource, 1)
+                if DEV_MODE:
+                    print(f"Player {player.index + 1} receives 1 {tile.resource} from settlement at {settlement}.")
+
     # returns whether the player has ended their turn
     def get_and_perform_player_action(self, player_index: int = None):
         # Use the provided index if given, else use the stored player_turn_index.
@@ -208,6 +217,12 @@ class Game:
                         if DEV_MODE:
                             print(f"Bot {current_player_index + 1} auto-turn: placing settlement and road.")
                         self.get_and_perform_player_action(current_player_index)  # settlement
+
+                        player = self.player_agents[current_player_index].player
+                        if len(player.settlements) == 2:
+                            settlement = player.settlements[-1]
+                            self.award_initial_resources(player, settlement)
+
                         self.get_and_perform_player_action(current_player_index)  # road
                         self.setup_turn_counter += 1
                         if self.setup_turn_counter < len(total_order):
@@ -242,13 +257,19 @@ class Game:
                 else:
                     current_player_index = n - 1 - player_index_in_round
 
+                self.get_and_perform_player_action(current_player_index)
+
                 if action_index == 0:
                     if DEV_MODE:
                         print(f"Round {current_round+1} - Player {current_player_index + 1} places a settlement.")
+                        player = self.player_agents[current_player_index].player
+                        if len(player.settlements) == 2:
+                            settlement = player.settlements[-1]
+                            self.award_initial_resources(player, settlement)
                 else:
                     if DEV_MODE:
                         print(f"Round {current_round+1} - Player {current_player_index + 1} places a road.")
-                self.get_and_perform_player_action(current_player_index)
+
                 self.setup_turns_elapsed += 1
 
         else:

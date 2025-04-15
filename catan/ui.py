@@ -7,7 +7,7 @@ import torch
 
 from catan.agent.random import RandomAgent
 from catan.agent.human import HumanAgent
-from catan.board import DevelopmentCard, Harbor, RoadVertex, Board
+from catan.board import DevelopmentCard, Harbor, RoadVertex, Board, DevCard
 from catan.game import Game
 from catan.game import GamePhase
 from catan.util import Point
@@ -264,7 +264,7 @@ class CatanUI:
             if isinstance(pa.agent, HumanAgent):
                 self.dev_card_buttons = {}
                 for card in ordered_dev_cards:
-                    count = sum(1 for c in player.unplayed_dev_cards if c == card)
+                    count = sum(1 for c in player.unplayed_dev_cards if (c.card_type == card and not c.on_cooldown))
                     card_name = str(card)
                     if card_name == "Year Of Plenty":
                         card_name = "YoP"
@@ -303,7 +303,7 @@ class CatanUI:
                         dev_y += max(button_height, card_surface.get_height()) + 5
             else:
                 for card in ordered_dev_cards:
-                    count = sum(1 for c in player.unplayed_dev_cards if c == card)
+                    count = sum(1 for c in player.unplayed_dev_cards if (c.card_type == card and not c.on_cooldown))
                     card_name = str(card)
                     if card_name == "Year Of Plenty":
                         card_name = "YoP"
@@ -631,6 +631,8 @@ class CatanUI:
                         if current_player.player.is_valid_settlement_location(hover_vertex, False) and not hover_vertex.has_settlement:
                             current_player.player.build_settlement(hover_vertex, False)
                             self.human_setup_settlement_placed = True
+                            if len(current_player.player.settlements) == 2:
+                                self.game.award_initial_resources(current_player.player, hover_vertex)
                     if self.human_setup_settlement_placed and not self.human_setup_road_placed and hover_road is not None:
                         if current_player.player.is_valid_road_location(hover_road, True):
                             current_player.player.build_road(hover_road, self.game, False)
@@ -651,29 +653,33 @@ class CatanUI:
                                             self.pending_dev_action = "KNIGHT"
                                             if DEV_MODE:
                                                 print("Knight card activated. Click a tile to move the robber.")
-                                            current_player.player.unplayed_dev_cards.remove(DevelopmentCard.KNIGHT)
-                                            current_player.player.played_dev_cards.append(DevelopmentCard.KNIGHT)
+                                            dev_card = next(c for c in current_player.player.unplayed_dev_cards if c.card_type == DevelopmentCard.KNIGHT)
+                                            current_player.player.unplayed_dev_cards.remove(dev_card)
+                                            current_player.player.played_dev_cards.append(dev_card)
                                         elif card == DevelopmentCard.ROAD_BUILDING:
                                             self.pending_dev_action = "ROAD_BUILDER"
                                             self.pending_dev_data = {"roads_built": 0}
                                             if DEV_MODE:
                                                 print("Road Builder activated. Build 2 free roads by clicking valid locations.")
-                                            current_player.player.unplayed_dev_cards.remove(DevelopmentCard.ROAD_BUILDING)
-                                            current_player.player.played_dev_cards.append(DevelopmentCard.ROAD_BUILDING)
+                                            dev_card = next(c for c in current_player.player.unplayed_dev_cards if c.card_type == DevelopmentCard.ROAD_BUILDING)
+                                            current_player.player.unplayed_dev_cards.remove(dev_card)
+                                            current_player.player.played_dev_cards.append(dev_card)
                                             
                                         elif card == DevelopmentCard.MONOPOLY:
                                             self.pending_dev_action = "MONOPOLY"
                                             if DEV_MODE:
                                                 print("Monopoly activated. Click on a resource square (modal) to steal all of that resource.")
-                                            current_player.player.unplayed_dev_cards.remove(DevelopmentCard.MONOPOLY)
-                                            current_player.player.played_dev_cards.append(DevelopmentCard.MONOPOLY)
+                                            dev_card = next(c for c in current_player.player.unplayed_dev_cards if c.card_type == DevelopmentCard.MONOPOLY)
+                                            current_player.player.unplayed_dev_cards.remove(dev_card)
+                                            current_player.player.played_dev_cards.append(dev_card)
                                         elif card == DevelopmentCard.YEAR_OF_PLENTY:
                                             self.pending_dev_action = "YEAR_OF_PLENTY"
                                             self.pending_dev_data = {"clicks": 0}
                                             if DEV_MODE:
                                                 print("Year of Plenty activated. Click twice on resource squares to gain 2 resources.")
-                                            current_player.player.unplayed_dev_cards.remove(DevelopmentCard.YEAR_OF_PLENTY)
-                                            current_player.player.played_dev_cards.append(DevelopmentCard.YEAR_OF_PLENTY)
+                                            dev_card = next(c for c in current_player.player.unplayed_dev_cards if c.card_type == DevelopmentCard.YEAR_OF_PLENTY)
+                                            current_player.player.unplayed_dev_cards.remove(dev_card)
+                                            current_player.player.played_dev_cards.append(dev_card)
                                     except Exception as e:
                                         if DEV_MODE:
                                             print(e)
@@ -735,6 +741,9 @@ class CatanUI:
                 elif event.type == pygame.KEYDOWN and event.key == pygame.K_c and self.game.winning_player_index is None:
                     if DEV_MODE:
                         print(f'-------- Human Player {self.game.player_turn_index + 1} ends turn {self.game.main_turns_elapsed + 1} --------')
+                    for c in current_player.player.unplayed_dev_cards:
+                        if c.on_cooldown:
+                            c.on_cooldown = False
                     self.game.human_dice_rolled = False
                     self.game.recompute_longest_road()
                     self.game.recompute_largest_army()

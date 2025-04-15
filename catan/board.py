@@ -5,6 +5,7 @@ from __future__ import annotations
 
 # https://www.redblobgames.com/grids/hexagons/ Very useful source for hexagons
 
+from dataclasses import dataclass
 import random
 import enum
 import itertools
@@ -57,15 +58,26 @@ class DevelopmentCard(enum.Enum):
     def __str__(self):
         return self.name.replace('_', ' ').title()
 
+@dataclass
+class DevCard:
+    card_type: DevelopmentCard
+    on_cooldown: bool = None
+
+    def __post_init__(self):
+        if self.on_cooldown is None:
+            self.on_cooldown = False if self.card_type == DevelopmentCard.VICTORY_POINT else True
+
 class DevelopmentCardDeck:
-    cards: list[DevelopmentCard]
+    cards: list[DevCard]
 
     def __init__(self):
-        self.cards = [DevelopmentCard.KNIGHT] * 14 + \
-            [DevelopmentCard.ROAD_BUILDING] * 2 + \
-            [DevelopmentCard.YEAR_OF_PLENTY] * 2 + \
-            [DevelopmentCard.MONOPOLY] * 2 + \
-            [DevelopmentCard.VICTORY_POINT] * 5
+        self.cards = (
+            [DevCard(DevelopmentCard.KNIGHT) for _ in range(14)] +
+            [DevCard(DevelopmentCard.ROAD_BUILDING) for _ in range(2)] +
+            [DevCard(DevelopmentCard.YEAR_OF_PLENTY) for _ in range(2)] +
+            [DevCard(DevelopmentCard.MONOPOLY) for _ in range(2)] +
+            [DevCard(DevelopmentCard.VICTORY_POINT) for _ in range(5)]
+        )
         random.shuffle(self.cards)
 
     def draw(self) -> DevelopmentCard:

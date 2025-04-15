@@ -29,15 +29,26 @@ To run a base game:
     python3 main.py
 ```
 
-To run a simulation (make sure there are no human players):
+To run a simulation:
 ```shell
-    python3 main.py --simulate 1
+    python3 main.py --sim
 ```
 
-To run a simulation with training (make sure there are no human players):
+To run a simulation with training:
 ```shell
-    python3 main.py --simulate 1 --train 1
+    python3 main.py --sim --train
 ```
+
+To run with certain types of players (base is RHNR):
+```shell
+    python3 main.py --players UHNR
+```
+
+Where:
+U = Human
+H = Heuristic
+N = Neural RL Agent
+R = Random
 
 # Reproducing Paper Results
 
@@ -57,7 +68,6 @@ IF THERE IS A HUMAN PLAYER:
 - **'r' key**: Resets board to a different initial configuration
 - Settlement/City/Road placement done on board
 - Trading and dev card usage done on right sidebar
-    - KNIGHT, MONOPOLY, HUMAN STEALING NOT IMPLEMENTED
 
 # File Overview
 - **board.py** contains functions that aid in creating and initializing the board data structure
