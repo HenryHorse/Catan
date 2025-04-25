@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Union, TYPE_CHECKING
 import random
 
-from catan.board import Board, Resource, RoadVertex, Road, Harbor, DevelopmentCard
+from catan.board import Board, DevelopmentCard, Resource, RoadVertex, Road, Harbor, DevCard
 from catan.error import CatanException
 from catan.constants import *
 if TYPE_CHECKING:
@@ -37,7 +37,7 @@ class BuyDevelopmentCardAction:
 
 @dataclass
 class UseDevelopmentCardAction:
-    card: DevelopmentCard
+    card: DevCard
 
 @dataclass
 class TradeAction:
@@ -63,8 +63,8 @@ class Player:
     color: tuple[int, int, int]
 
     resources: dict[Resource, int]
-    unplayed_dev_cards: list[DevelopmentCard]
-    played_dev_cards: list[DevelopmentCard]
+    unplayed_dev_cards: list[DevCard]
+    played_dev_cards: list[DevCard]
 
     # for the road building development card
     free_roads_remaining: int
@@ -111,11 +111,11 @@ class Player:
         self.pending_settlement_for_road = None
     
     def get_victory_points(self) -> int:
-        return len(self.settlements) + len(self.cities) + \
-            self.played_dev_cards.count(DevelopmentCard.VICTORY_POINT) + \
-            self.unplayed_dev_cards.count(DevelopmentCard.VICTORY_POINT) + \
-            (2 if self.has_longest_road else 0) + \
-            (2 if self.has_largest_army else 0)
+        return (len(self.settlements) + len(self.cities) +
+            sum(1 for card in self.played_dev_cards if card.card_type == DevelopmentCard.VICTORY_POINT) +
+            sum(1 for card in self.unplayed_dev_cards if card.card_type == DevelopmentCard.VICTORY_POINT) +
+            (2 if self.has_longest_road else 0) +
+            (2 if self.has_largest_army else 0))
     
     def get_resources_array(self) -> list[Resource]:
         return [resource for resource, count in self.resources.items() for _ in range(count)]
@@ -337,10 +337,13 @@ class Player:
                     actions.append(BuildRoadAction(road))
         if board.development_card_deck.remaining_cards() > 0 and self.can_afford(DEVELOPMENT_CARD_COST):
             actions.append(BuyDevelopmentCardAction())
-        for card in list(set(self.unplayed_dev_cards)):
-            # victory point cards don't get played!
-            if card != DevelopmentCard.VICTORY_POINT:
-                actions.append(UseDevelopmentCardAction(card))
+        unique_cards = {}
+        for card in self.unplayed_dev_cards:
+            if card.card_type != DevelopmentCard.VICTORY_POINT and not card.on_cooldown:
+                if card.card_type not in unique_cards:
+                    unique_cards[card.card_type] = card
+        for unique_card in unique_cards.values():
+            actions.append(UseDevelopmentCardAction(unique_card))
         for resource in Resource:
             if self.can_trade_2_to_1(resource, True):
                 actions.extend(TradeAction.simple_trade_options(resource, 2))
@@ -355,6 +358,9 @@ class Player:
         if DEV_MODE:
             print(f'Player {self.index + 1} performs action {action}')
         if isinstance(action, EndTurnAction):
+            for card in self.unplayed_dev_cards:
+                if card.card_type != DevelopmentCard.VICTORY_POINT and card.on_cooldown:
+                    card.on_cooldown = False
             return True
         elif isinstance(action, BuildSettlementAction):
             self.build_settlement(action.road_vertex, action.pay_for)
@@ -369,15 +375,15 @@ class Player:
         elif isinstance(action, UseDevelopmentCardAction):
             self.unplayed_dev_cards.remove(action.card)
             self.played_dev_cards.append(action.card)
-            if action.card == DevelopmentCard.KNIGHT:
+            if action.card.card_type == DevelopmentCard.KNIGHT:
                 game.move_robber_and_steal(self.index)
                 self.army_size += 1
-            elif action.card == DevelopmentCard.ROAD_BUILDING:
+            elif action.card.card_type == DevelopmentCard.ROAD_BUILDING:
                 self.free_roads_remaining += min(2, self.available_roads)
-            elif action.card == DevelopmentCard.YEAR_OF_PLENTY:
+            elif action.card.card_type == DevelopmentCard.YEAR_OF_PLENTY:
                 for _ in range(2):
                     game.select_and_give_resource(self.index)
-            elif action.card == DevelopmentCard.MONOPOLY:
+            elif action.card.card_type == DevelopmentCard.MONOPOLY:
                 game.select_and_steal_all_resources(self.index)
         elif isinstance(action, TradeAction):
             if not self.can_afford(action.giving):

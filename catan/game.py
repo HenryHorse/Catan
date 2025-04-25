@@ -4,7 +4,7 @@ from enum import Enum
 from typing import Callable
 
 from catan.agent.human import HumanAgent
-from catan.board import Board
+from catan.board import Board, RoadVertex
 from catan.player import Player
 from catan.agent import Agent
 
@@ -64,7 +64,7 @@ class Game:
             print(f"Rolled a {roll}")
 
         if roll == 7:
-            # TODO: do that whole resources >= 8 thing
+            self.discard_half_resources_from_all()
             self.move_robber_and_steal(self.player_turn_index)
             return
 
@@ -75,14 +75,15 @@ class Game:
                         count = 2 if road_vertex.has_city else 1
                         self.player_agents[road_vertex.owner].player.give_resource(tile.resource, count)
 
-    def move_robber_and_steal(self, player_index: int):
+    def move_robber_and_steal(self, player_index: int, location = None):
         player, agent = self.player_agents[player_index].as_tuple()
-        location = agent.get_robber_placement(self)
+        if location == None:
+            location = agent.get_robber_placement(self)
         if DEV_MODE:
             print(f"Player {self.player_turn_index + 1} moves robber to {location}")
         for tile in self.board.tiles.values():
             tile.has_robber = tile.cube_coords == location
-            if tile.has_robber:
+            if tile.has_robber and not isinstance(agent, HumanAgent):
                 players_on_tile = [vertex.owner for vertex in tile.adjacent_road_vertices \
                                    if vertex.owner is not None and vertex.owner != player_index]
                 if players_on_tile:
@@ -99,7 +100,7 @@ class Game:
         for player_agent in self.player_agents:
             player = player_agent.player
             if player.get_resource_count() > 7:
-                discard_count = player.resource_count() // 2
+                discard_count = player.get_resource_count() // 2
                 _ = player.take_random_resources(discard_count)
                 if DEV_MODE:
                     print(f"Player {player.index + 1} discards {discard_count} resources")
@@ -109,9 +110,12 @@ class Game:
         resource = agent.get_most_needed_resource(self)
         player.give_resource(resource, 1)
 
-    def select_and_steal_all_resources(self, player_index: int):
+    def select_and_steal_all_resources(self, player_index: int, chosen_resource = None):
         player, agent = self.player_agents[player_index].as_tuple()
-        resource = agent.get_most_needed_resource(self)
+        if chosen_resource != None:
+            resource = chosen_resource
+        else:
+            resource = agent.get_most_needed_resource(self)
         count = 0
         for player_agent in self.player_agents:
             if player_agent.player.index != player_index:
@@ -159,6 +163,15 @@ class Game:
             3
         )
 
+    def award_initial_resources(self, player: Player, settlement: RoadVertex):
+        adjacent_tiles = [tile for tile in self.board.tiles.values() 
+                          if settlement in tile.adjacent_road_vertices]
+        for tile in adjacent_tiles:
+            if tile.resource is not None:
+                player.give_resource(tile.resource, 1)
+                if DEV_MODE:
+                    print(f"Player {player.index + 1} receives 1 {tile.resource} from settlement at {settlement}.")
+
     # returns whether the player has ended their turn
     def get_and_perform_player_action(self, player_index: int = None):
         # Use the provided index if given, else use the stored player_turn_index.
@@ -204,6 +217,12 @@ class Game:
                         if DEV_MODE:
                             print(f"Bot {current_player_index + 1} auto-turn: placing settlement and road.")
                         self.get_and_perform_player_action(current_player_index)  # settlement
+
+                        player = self.player_agents[current_player_index].player
+                        if len(player.settlements) == 2:
+                            settlement = player.settlements[-1]
+                            self.award_initial_resources(player, settlement)
+
                         self.get_and_perform_player_action(current_player_index)  # road
                         self.setup_turn_counter += 1
                         if self.setup_turn_counter < len(total_order):
@@ -238,13 +257,19 @@ class Game:
                 else:
                     current_player_index = n - 1 - player_index_in_round
 
+                self.get_and_perform_player_action(current_player_index)
+
                 if action_index == 0:
                     if DEV_MODE:
                         print(f"Round {current_round+1} - Player {current_player_index + 1} places a settlement.")
+                        player = self.player_agents[current_player_index].player
+                        if len(player.settlements) == 2:
+                            settlement = player.settlements[-1]
+                            self.award_initial_resources(player, settlement)
                 else:
                     if DEV_MODE:
                         print(f"Round {current_round+1} - Player {current_player_index + 1} places a road.")
-                self.get_and_perform_player_action(current_player_index)
+
                 self.setup_turns_elapsed += 1
 
         else:

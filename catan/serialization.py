@@ -159,7 +159,7 @@ class BrickRepresentation:
             player_index += 1
         # Given player's current Dev Cards
         for dev_card in given_player.unplayed_dev_cards:
-            self.player_states[2][dev_card.value] += 1
+            self.player_states[2][dev_card.card_type.value] += 1
 
         self.player_states = self.flatten_nested_list(self.player_states)
 

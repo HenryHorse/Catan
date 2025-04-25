@@ -14,7 +14,7 @@ from catan.QNN import QNetwork
 from catan.serialization import BrickRepresentation
 
 
-from catan.board import Board, Resource, RoadVertex, Road, DevelopmentCard
+from catan.board import Board, Resource, RoadVertex, Road, DevelopmentCard, DevCard
 from catan.player import Player, Action, BuildSettlementAction, BuildCityAction, BuildRoadAction, \
     BuyDevelopmentCardAction, TradeAction, UseDevelopmentCardAction, EndTurnAction
 from catan.game import GamePhase
@@ -156,16 +156,16 @@ class RL_Model:
                     score -= 10 # Punishment for giving up a resource player only has 1 of
         return score
 
-    def evaluate_dev_card(self, dev_card: DevelopmentCard, game: 'Game') -> int:
+    def evaluate_dev_card(self, dev_card: DevCard, game: 'Game') -> int:
         score = 0
-        match dev_card:
-            case dev_card.KNIGHT:
+        match dev_card.card_type:
+            case dev_card.card_type.KNIGHT:
                 score += 3
-            case dev_card.ROAD_BUILDING:
+            case dev_card.card_type.ROAD_BUILDING:
                 score += 10
-            case dev_card.YEAR_OF_PLENTY:
+            case dev_card.card_type.YEAR_OF_PLENTY:
                 score += 10
-            case dev_card.MONOPOLY:
+            case dev_card.card_type.MONOPOLY:
                 score += 10
         return score
 
