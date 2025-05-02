@@ -25,7 +25,7 @@ class BrickRepresentation:
         self.size = size
         self.width = 4 * size + 1
         self.height = 2 * size + 1
-        center = self.width // 2, self.height // 2
+        self.center = self.width // 2, self.height // 2
         self.num_players = num_players
         self.game = game
         self.agent_player_num = agent_player_num
@@ -41,8 +41,8 @@ class BrickRepresentation:
         return (cube.q * 2) + self.center[0], (((cube.r - cube.s) // 3) * -2 - 1) + self.center[1]
 
     def get_road_brick_coords(self, road: Road) -> tuple[int, int]:
-        vertex_1 = self.get_road_vertex_brick_displacement(road.endpoints[0])
-        vertex_2 = self.get_road_vertex_brick_displacement(road.endpoints[1])
+        vertex_1 = self.get_road_vertex_brick_coords(road.endpoints[0])
+        vertex_2 = self.get_road_vertex_brick_coords(road.endpoints[1])
         return (vertex_1[0] + vertex_2[0]) // 2, (vertex_1[1] + vertex_2[1]) // 2
 
     def flatten_nested_list(self, nested_list):
@@ -70,7 +70,7 @@ class BrickRepresentation:
            0, #city
            0, #dev card: Knight card
            ] for _ in range(self.width)] for _ in range(self.height)],
-        [[[0] * 13 for _ in range(self.num_players)]],
+        [[0] * 13 for _ in range(self.num_players)],
         # Resources for each player (Wood, Grain, Sheep, Ore, Brick) + 
                                                 # Rem Roads + Rem Cit + Rem Sett + Vict Points + If Long Road + Length Long Road + If Larg Arm + Size Arm
         [0, 0, 0, 0, 0] # Unplayed dev cards: Knight, Road Building, Year of Plenty, Monopoly, Victory Point
@@ -93,13 +93,13 @@ class BrickRepresentation:
             if isinstance(act, EndTurnAction):
                 self.player_states[0] = 1
             elif isinstance(act, BuildSettlementAction): 
-                coords = self.get_road_vertex_brick_displacement(act.road_vertex)
+                coords = self.get_road_vertex_brick_coords(act.road_vertex)
                 self.player_states[8][coords[1]][coords[0]][1] = 1
             elif isinstance(act, BuildCityAction): # 0/1 and whole map copy
-                coords = self.get_road_vertex_brick_displacement(act.road_vertex)
+                coords = self.get_road_vertex_brick_coords(act.road_vertex)
                 self.player_states[8][coords[1]][coords[0]][2] = 1
             elif isinstance(act, BuildRoadAction): # 0/1 and whole map copy
-                coords = self.get_road_brick_displacement(act.road)
+                coords = self.get_road_brick_coords(act.road)
                 self.player_states[8][coords[1]][coords[0]][0] = 1
             elif isinstance(act, BuyDevelopmentCardAction): # Just 0/1
                 self.player_states[1] = 1
@@ -110,7 +110,7 @@ class BrickRepresentation:
                         for tile in game.board.tiles.values():
                             if tile.has_robber:
                                 continue
-                            coords = self.get_tile_brick_displacement(tile.cube_coords)
+                            coords = self.get_tile_brick_coords(tile.cube_coords)
                             self.player_states[8][coords[1]][coords[0]][3] = 1
                         break
                     case DevelopmentCard.ROAD_BUILDING:
@@ -132,8 +132,6 @@ class BrickRepresentation:
                         self.player_states[6][resource_index] = 1  # Mark that a 4:1 trade is possible
                     elif act.giving.count(resource) == 2:  # Only consider 4:1 trades
                         self.player_states[7][resource_index] = 1  # Mark that a 4:1 trade is possible
-        
-        self.recursive_serialize(self.game, self.game.board.center_tile, None, None, True, actions)
 
         # Encode player states
         for player_index, player in enumerate(game.player_agents):
@@ -200,3 +198,7 @@ class BrickRepresentation:
         x, y = self.get_road_brick_coords(road)
         if road.owner is not None:
             self.board[road.owner][y][x] = 1
+    
+    def encode_all(self, given_player: Player):
+        self.encode_board_recursive(self.game)
+        self.encode_player_states(self.game, given_player)
