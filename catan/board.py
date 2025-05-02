@@ -10,7 +10,7 @@ import random
 import enum
 import itertools
 
-from catan.util import Point, CubeCoordinates, cube_coordinate_directions, hexagon_vertex_displacements
+from catan.util import Point, CubeCoordinates, TILE_TO_TILE_DIRECTIONS, TILE_TO_ROAD_VERTEX_DIRECTIONS
 
 class Resource(enum.Enum):
     WOOD = 0
@@ -36,15 +36,15 @@ class Harbor(enum.Enum):
         return f'2:1 {self.name.title()}'
 
 HARBOR_LOCATIONS = [
-    (CubeCoordinates(1, -2, 1), 0, 1),
-    (CubeCoordinates(2, -1, -1), 0, 1),
-    (CubeCoordinates(2, 0, -2), 1, 2),
-    (CubeCoordinates(1, 1, -2), 2, 3),
-    (CubeCoordinates(-1, 2, -1), 2, 3),
-    (CubeCoordinates(-2, 2, 0), 3, 4),
-    (CubeCoordinates(-2, 1, 1), 4, 5),
-    (CubeCoordinates(-1, -1, 2), 4, 5),
-    (CubeCoordinates(0, -2, 2), 5, 0),
+    (CubeCoordinates(0, -4, 4), CubeCoordinates(1, -4, 3)),
+    (CubeCoordinates(3, -4, 1), CubeCoordinates(4, -4, 0)),
+    (CubeCoordinates(5, -3, -2), CubeCoordinates(5, -2, -3)),
+    (CubeCoordinates(4, 0, -4), CubeCoordinates(3, 1, -4)),
+    (CubeCoordinates(1, 3, -4), CubeCoordinates(0, 4, -4)),
+    (CubeCoordinates(-2, 5, -3), CubeCoordinates(-3, 5, -2)),
+    (CubeCoordinates(-4, 4, 0), CubeCoordinates(-4, 3, 1)),
+    (CubeCoordinates(-4, 1, 3), CubeCoordinates(-4, 0, 4)),
+    (CubeCoordinates(-3, -2, 5), CubeCoordinates(-2, -3, 5)),
 ]
 
 
@@ -132,6 +132,7 @@ class Tile:
         return self.cube_coords.to_cartesian() * hex_radius
 
 class RoadVertex:
+    cube_coords: CubeCoordinates
     parent_tile: Tile
     index_on_parent: int
 
@@ -147,6 +148,7 @@ class RoadVertex:
 
     def __init__(
             self,
+            cube_coords: CubeCoordinates,
             parent_tile: Tile,
             index_on_parent: int,
             harbor: Harbor | None = None,
@@ -156,6 +158,7 @@ class RoadVertex:
             adjacent_tiles: list[Tile | None] | None = None,
             adjacent_road_vertices: list[RoadVertex] | None = None,
             adjacent_roads: list[Road | None] | None = None):
+        self.cube_coords = cube_coords
         self.parent_tile = parent_tile
         self.index_on_parent = index_on_parent
 
@@ -171,8 +174,7 @@ class RoadVertex:
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, RoadVertex):
             return False
-        return self.parent_tile.cube_coords == other.parent_tile.cube_coords and \
-            self.index_on_parent == other.index_on_parent
+        return self.cube_coords == other.cube_coords
     
     def __hash__(self):
         return hash((self.parent_tile.cube_coords, self.index_on_parent))
@@ -181,10 +183,7 @@ class RoadVertex:
         return f'RoadVertex(harbor={self.harbor}, owner={self.owner}, has_settlement={self.has_settlement}, has_city={self.has_city})'
     
     def get_screen_position(self, hex_radius: float) -> Point:
-        tile = self.adjacent_tiles[0]
-        index = tile.adjacent_road_vertices.index(self)
-        displacement = hexagon_vertex_displacements[index] * hex_radius
-        return tile.get_screen_position(hex_radius) + displacement
+        return self.cube_coords.to_cartesian() * hex_radius
 
 class Road:
     endpoints: tuple[RoadVertex, RoadVertex]
@@ -219,7 +218,7 @@ class Board:
     size: int
     center_tile: Tile
     tiles: dict[CubeCoordinates, Tile]
-    road_vertices: list[RoadVertex]
+    road_vertices: dict[CubeCoordinates, RoadVertex]
     roads: list[Road]
     development_card_deck: DevelopmentCardDeck
 
@@ -228,7 +227,7 @@ class Board:
         self.size = size
         self.center_tile = Tile(CubeCoordinates(0, 0, 0), None, 0)
         self.tiles = {self.center_tile.cube_coords: self.center_tile}
-        self.road_vertices = []
+        self.road_vertices = {}
         self.roads = []
         self.development_card_deck = DevelopmentCardDeck()
 
@@ -261,7 +260,7 @@ class Board:
             assert tile.adjacent_roads.count(None) == 0
     
     def _extend_tile_in_all_directions(self, tile: Tile):
-        for i, offset in enumerate(cube_coordinate_directions):
+        for i, offset in enumerate(TILE_TO_TILE_DIRECTIONS):
             if tile.adjacent_tiles[i] is not None:
                 continue
             new_coords = tile.cube_coords + offset
@@ -271,7 +270,7 @@ class Board:
             self.tiles[new_coords].adjacent_tiles[(i + 3) % 6] = tile
     
     def _connect_tile_to_neighbors(self, tile: Tile):
-        for i, offset in enumerate(cube_coordinate_directions):
+        for i, offset in enumerate(TILE_TO_TILE_DIRECTIONS):
             if tile.adjacent_tiles[i] is not None:
                 continue
             new_coords = tile.cube_coords + offset
@@ -280,13 +279,14 @@ class Board:
                 self.tiles[new_coords].adjacent_tiles[(i + 3) % 6] = tile
     
     def _create_road_vertices_on_tile(self, tile: Tile):
-        for i in range(6):
+        for i, offset in enumerate(TILE_TO_ROAD_VERTEX_DIRECTIONS):
             if tile.adjacent_road_vertices[i] is not None:
                 continue
-            new_road_vertex = RoadVertex(tile, i)
+            vert_coords = tile.cube_coords + offset
+            new_road_vertex = RoadVertex(vert_coords, tile, i)
             tile.adjacent_road_vertices[i] = new_road_vertex
             new_road_vertex.adjacent_tiles.append(tile)
-            self.road_vertices.append(new_road_vertex)
+            self.road_vertices[vert_coords] = new_road_vertex
             if (tile_1 := tile.adjacent_tiles[i - 1]) is not None:
                 tile_1.adjacent_road_vertices[(i + 2) % 6] = new_road_vertex
                 new_road_vertex.adjacent_tiles.append(tile_1)
@@ -319,11 +319,10 @@ class Board:
         remaining_harbor_types = list(Harbor) + [Harbor.THREE_TO_ONE] * (len(HARBOR_LOCATIONS) - len(Harbor))
         random.shuffle(remaining_harbor_types)
 
-        for tile_coords, vert_1, vert_2 in HARBOR_LOCATIONS:
+        for v1_coords, v2_coords in HARBOR_LOCATIONS:
             harbor = remaining_harbor_types.pop()
-            tile = self.tiles[tile_coords]
-            tile.adjacent_road_vertices[vert_1].harbor = harbor
-            tile.adjacent_road_vertices[vert_2].harbor = harbor
+            self.road_vertices[v1_coords].harbor = harbor
+            self.road_vertices[v2_coords].harbor = harbor
 
     def initialize_tile_info(self):
         total_tiles = len(self.tiles)
@@ -398,7 +397,7 @@ class Board:
         """
         Return a vertex from the board's road_vertices if the mouse position is within a threshold distance.
         """
-        for vertex in self.road_vertices:
+        for vertex in self.road_vertices.values():
             vertex_screen_pos = vertex.get_screen_position(hexagon_size) + displacement
             if abs(vertex_screen_pos.x - mouse_pos[0]) < threshold and abs(vertex_screen_pos.y - mouse_pos[1]) < threshold:
                 return vertex
@@ -464,13 +463,7 @@ class Board:
         that contains the given mouse position.
         """
         for tile in self.tiles.values():
-            center = tile.get_screen_position(hexagon_size) + displacement
-            # Compute vertices for a regular hexagon
-            vertices = []
-            for disp in hexagon_vertex_displacements:
-                vertex = center + (disp * hexagon_size)
-                vertices.append((vertex.x, vertex.y))
+            vertices = [vert.get_screen_position(hexagon_size) + displacement for vert in tile.adjacent_road_vertices]
             if self.point_in_polygon(mouse_pos, vertices):
                 return tile
         return None
-
