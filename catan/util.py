@@ -27,15 +27,6 @@ class Point:
     def to_int_tuple(self) -> tuple[int, int]:
         return (int(self.x), int(self.y))
 
-hexagon_vertex_displacements = [
-    Point(0, 1),  # top
-    Point(math.sqrt(3) / 2, 0.5),  # top-right
-    Point(math.sqrt(3) / 2, -0.5),  # bottom-right
-    Point(0, -1),  # bottom
-    Point(-math.sqrt(3) / 2, -0.5),  # bottom-left
-    Point(-math.sqrt(3) / 2, 0.5)  # top-left
-]
-
 @dataclass(frozen=True)
 class OffsetCoordinates:
     # odd-r offset coordinates
@@ -55,19 +46,28 @@ class CubeCoordinates:
         return CubeCoordinates(self.q - other.q, self.r - other.r, self.s - other.s)
 
     def to_cartesian(self) -> Point:
-        height = 2
-        width = math.sqrt(3)
-        x = self.q * width + self.r * width / 2
-        y = -self.r * height * 3 / 4
+        height = math.sqrt(3)
+        width = 2
+        x = self.q * width * 3 / 4
+        y = -self.r * height - self.q * height / 2
         return Point(x, y)
 
-cube_coordinate_directions = [
+TILE_TO_TILE_DIRECTIONS = [
+    CubeCoordinates(1, -2, 1),  # top-right
+    CubeCoordinates(2, -1, -1), # right
+    CubeCoordinates(1, 1, -2),  # bottom-right
+    CubeCoordinates(-1, 2, -1), # bottom-left
+    CubeCoordinates(-2, 1, 1),  # left
+    CubeCoordinates(-1, -1, 2)  # top-left
+]
+
+TILE_TO_ROAD_VERTEX_DIRECTIONS = [
+    CubeCoordinates(0, -1, 1),  # top
     CubeCoordinates(1, -1, 0),  # top-right
-    CubeCoordinates(1, 0, -1),  # right
-    CubeCoordinates(0, 1, -1),  # bottom-right
+    CubeCoordinates(1, 0, -1),  # bottom-right
+    CubeCoordinates(0, 1, -1),  # bottom
     CubeCoordinates(-1, 1, 0),  # bottom-left
-    CubeCoordinates(-1, 0, 1),  # left
-    CubeCoordinates(0, -1, 1)   # top-left
+    CubeCoordinates(-1, 0, 1)   # top-left
 ]
 
 @dataclass(frozen=True)
