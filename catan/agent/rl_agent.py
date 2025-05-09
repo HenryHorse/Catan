@@ -220,7 +220,7 @@ class RL_Model:
     def get_state(self, game: 'Game', player: 'Player'):
         """Generate a state representation using BrickRepresentation"""
         brick_rep = BrickRepresentation(size=BOARD_SIZE, num_players=len(game.player_agents), game=game, agent_player_num=player.index)
-        brick_rep.encode_player_states(game, player)
+        brick_rep.encode_all(player)
         
         # Board state: Multi-channel tensor
         board_state = torch.tensor(brick_rep.board, dtype=torch.float32)

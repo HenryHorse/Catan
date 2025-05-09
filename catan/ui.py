@@ -127,8 +127,9 @@ class CatanUI:
                 text_rect = text_surface.get_rect(center=(center.to_int_tuple()))
                 self.screen.blit(text_surface, text_rect)
         
-        for road_vertex in self.game.board.road_vertices:
+        for cube_coord, road_vertex in self.game.board.road_vertices.items():
             pos = road_vertex.get_screen_position(self.hexagon_size) + self.displacement
+
             if road_vertex.harbor is not None:
                 harbor_text = self.harbor_font.render(str(road_vertex.harbor), True, WHITE)
                 text_rect = harbor_text.get_rect(center=pos.to_int_tuple())
@@ -143,6 +144,7 @@ class CatanUI:
                     pygame.draw.circle(self.screen, HOVER_COLOR, pos.to_int_tuple(), radius)
                 else:
                     pygame.draw.circle(self.screen, ROAD_COLOR, pos.to_int_tuple(), radius)
+
 
         for road in self.game.board.roads:
             v1, v2 = road.endpoints
@@ -753,10 +755,9 @@ class CatanUI:
                 if DEV_MODE:
                     print(f'-------- Player {self.game.player_turn_index + 1} takes turn {self.game.main_turns_elapsed + 1} --------')
                 self.game.do_full_turn()
-                self.serialization.encode_player_states(self.game, self.game.player_agents[1].player)
+                self.serialization.encode_all(current_player.player)
                 if DEV_MODE:
                     print("Player States (Player 2):", self.serialization.player_states)
-                self.serialization.recursive_serialize(self.game, self.game.board.center_tile, None, None)
                 if DEV_MODE:
                     print("Player 2 Board State:", self.serialization.board[1])
 
@@ -883,7 +884,7 @@ class CatanUI:
         self.stats_area_width = int(self.screen_width * 0.25)
         self.stats_area_height = int(self.screen_height * 0.80)
         self.screen_size = (self.board_area_width + self.stats_area_width, self.board_area_height)
-        self.hexagon_size = min(self.board_area_width, self.board_area_height) // 10
+        self.hexagon_size = min(self.board_area_width, self.board_area_height) // 16
         self.displacement = Point(self.board_area_width // 2, self.board_area_height // 2)
 
     def calculate_fonts(self):

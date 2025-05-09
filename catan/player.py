@@ -313,7 +313,7 @@ class Player:
     def _get_all_possible_actions_placing(self, board: Board) -> list[Action]:
         actions: list[Action] = []
         if self.setup_last_settlement is None:
-            for road_vertex in board.road_vertices:
+            for cube_coord, road_vertex in board.road_vertices.items():
                 if self.is_valid_settlement_location(road_vertex, needs_road=False):
                     actions.append(BuildSettlementAction(road_vertex, False))
         else:
@@ -324,7 +324,7 @@ class Player:
     def _get_all_possible_actions_normal(self, board: Board) -> list[Action]:
         actions: list[Action] = [EndTurnAction()]
         if self.available_settlements > 0:
-            for road_vertex in board.road_vertices:
+            for cube_coord, road_vertex in board.road_vertices.items():
                 if self.is_valid_settlement_location(road_vertex) and self.can_afford(SETTLEMENT_COST):
                     actions.append(BuildSettlementAction(road_vertex))
         if self.available_cities > 0:
