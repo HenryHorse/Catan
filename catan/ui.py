@@ -755,8 +755,7 @@ class CatanUI:
                 if DEV_MODE:
                     print(f'-------- Player {self.game.player_turn_index + 1} takes turn {self.game.main_turns_elapsed + 1} --------')
                 self.game.do_full_turn()
-                self.serialization.encode_player_states(self.game, self.game.player_agents[1].player)
-                self.serialization.encode_all(current_player)
+                self.serialization.encode_all(current_player.player)
                 if DEV_MODE:
                     print("Player States (Player 2):", self.serialization.player_states)
                 if DEV_MODE:

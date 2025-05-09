@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 from catan.board import Tile, Road, Resource, DevelopmentCard, RoadVertex, Harbor
-from catan.game import Game, PlayerAgent
+from catan.game import Game, GamePhase, PlayerAgent
 from catan.player import Player, EndTurnAction, BuildSettlementAction, BuildCityAction, BuildRoadAction, BuyDevelopmentCardAction, UseDevelopmentCardAction, TradeAction
 
 from globals import DEV_MODE
@@ -34,7 +34,7 @@ class BrickRepresentation:
     
     def get_tile_brick_coords(self, tile: Tile) -> tuple[int, int]:
         cube = tile.cube_coords
-        return (cube.q * 2) + self.center[0], (-cube.r * 4 - cube.q * 2) + self.center[1]
+        return (cube.q * 2) + self.center[0], ((cube.s - cube.r) // 3) * 2 + self.center[1]
 
     def get_road_vertex_brick_coords(self, road_vertex: RoadVertex) -> tuple[int, int]:
         cube = road_vertex.cube_coords
@@ -84,7 +84,7 @@ class BrickRepresentation:
         self.reinitialize()
 
         # Get action space for player
-        actions = given_player._get_all_possible_actions_normal(game.board)
+        actions = given_player.get_all_possible_actions(game.board, game.game_phase == GamePhase.SETUP)
         if DEV_MODE:
             print(f"Possible actions: {actions}")
 
