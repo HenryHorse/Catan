@@ -9,6 +9,7 @@ from dataclasses import dataclass
 import random
 import enum
 import itertools
+import networkx as nx
 
 from catan.util import Point, CubeCoordinates, TILE_TO_TILE_DIRECTIONS, TILE_TO_ROAD_VERTEX_DIRECTIONS
 
@@ -222,6 +223,8 @@ class Board:
     roads: list[Road]
     development_card_deck: DevelopmentCardDeck
 
+    nx_graph: nx.Graph
+
     def __init__(self, size: int):
         assert size > 0
         self.size = size
@@ -230,6 +233,9 @@ class Board:
         self.road_vertices = {}
         self.roads = []
         self.development_card_deck = DevelopmentCardDeck()
+
+        self.nx_graph = nx.Graph()
+        self.nx_graph.add_node(self.center_tile)
 
         # create tiles
         for i in range(1, size):
@@ -251,6 +257,8 @@ class Board:
             self._create_roads_on_tile(tile)
         
         self.set_harbors()
+
+        self.build_networkx_graph()
         
         # verify
         for tile in self.tiles.values():
@@ -467,3 +475,35 @@ class Board:
             if self.point_in_polygon(mouse_pos, vertices):
                 return tile
         return None
+
+    def add_tile_to_nx_graph(self, tile: Tile):
+        self.nx_graph.add_node(tile)
+
+    def add_road_vertex_to_nx_graph(self, road_vertex: RoadVertex):
+        self.nx_graph.add_node(road_vertex)
+
+    def add_road_to_nx_graph(self, road: Road):
+        self.nx_graph.add_node(road)
+    
+    def add_tile_to_road_vertex_edge(self, tile: Tile, road_vertex: RoadVertex):
+        self.nx_graph.add_edge(tile, road_vertex)
+    
+    def add_road_to_road_vertex_edge(self, road: Road, road_vertex: RoadVertex):
+        self.nx_graph.add_edge(road, road_vertex)
+    
+    def build_networkx_graph(self):
+        self.nx_graph.clear()
+
+        for tile in self.tiles.values():
+            self.add_tile_to_nx_graph(tile)
+        for road_vertex in self.road_vertices.values():
+            self.add_road_vertex_to_nx_graph(road_vertex)
+        for road in self.roads:
+            self.add_road_to_nx_graph(road)
+        
+        for tile in self.tiles.values():
+            for road_vert in tile.adjacent_road_vertices:
+                self.add_tile_to_road_vertex_edge(tile, road_vert)
+        for road in self.roads:
+            for road_vert in road.endpoints:
+                self.add_road_to_road_vertex_edge(road, road_vert)
