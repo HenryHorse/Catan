@@ -8,6 +8,7 @@ import torch_geometric.nn as gnn
 from torch_geometric.data import HeteroData
 
 
+
 from globals import DEV_MODE
 
 
@@ -52,29 +53,29 @@ class QNetwork(nn.Module):
 class GNNQNetwork(nn.Module):
     def __init__(self, player_state_dim: int, action_dim: int, hidden_dim: int = 128, out_graph_dim: int = 256):
         super(GNNQNetwork, self).__init__()
-        
+
         self.node_encoders = nn.ModuleDict({
-            'tile': nn.linear(8, hidden_dim),
-            'vertex': nn.Linear(13, hidden_dim),
+            'tile': nn.Linear(8, hidden_dim),
+            'road_vertex': nn.Linear(13, hidden_dim),
             'road': nn.Linear(4, hidden_dim),
         })
 
         self.hetero_conv1 = gnn.HeteroConv({
-            ('road_vertex', 'road_vertex_to_tile', 'tile'): gnn.GATConv(hidden_dim, hidden_dim),
-            ('tile', 'tile_to_road_vertex', 'road_vertex'): gnn.GATConv(hidden_dim, hidden_dim),
-            ('road', 'road_to_road_vertex', 'road_vertex'): gnn.GATConv(hidden_dim, hidden_dim),
-            ('road_vertex', 'road_vertex_to_road', 'road'): gnn.GATConv(hidden_dim, hidden_dim),
-            ('tile', 'tile_to_road', 'road'): gnn.GATConv(hidden_dim, hidden_dim),
-            ('road', 'road_to_tile', 'tile'): gnn.GATConv(hidden_dim, hidden_dim),
+            ('road_vertex', 'road_vertex_to_tile', 'tile'): gnn.GATConv(hidden_dim, hidden_dim, add_self_loops=False),
+            ('tile', 'tile_to_road_vertex', 'road_vertex'): gnn.GATConv(hidden_dim, hidden_dim, add_self_loops=False),
+            ('road', 'road_to_road_vertex', 'road_vertex'): gnn.GATConv(hidden_dim, hidden_dim, add_self_loops=False),
+            ('road_vertex', 'road_vertex_to_road', 'road'): gnn.GATConv(hidden_dim, hidden_dim, add_self_loops=False),
+            ('tile', 'tile_to_road', 'road'): gnn.GATConv(hidden_dim, hidden_dim, add_self_loops=False),
+            ('road', 'road_to_tile', 'tile'): gnn.GATConv(hidden_dim, hidden_dim, add_self_loops=False),
         }, aggr='sum')
 
         # Fully connected layers for player state
         self.fc1 = nn.Linear(player_state_dim, hidden_dim)  # Input size: player_state_dim
         self.fc2 = nn.Linear(hidden_dim, hidden_dim)
-        
+
         # Final layer to output Q-values for each action
-        self.fc_action = nn.Linear(29568 + hidden_dim, action_dim)
-    
+        self.fc_action = nn.Linear(4 * hidden_dim, action_dim)
+
     def forward(self, data: HeteroData, x_player):
         # Encode initial features for each node type
         x_dict = {
@@ -83,7 +84,7 @@ class GNNQNetwork(nn.Module):
         }
 
         # Apply heterogeneous graph convolution
-        x_dict = self.hetero_conv(x_dict, data.edge_index_dict)
+        x_dict = self.hetero_conv1(x_dict, data.edge_index_dict)
 
         # Pool all node representations (i am not typing allat)
         x_all = torch.cat([
@@ -98,24 +99,24 @@ class GNNQNetwork(nn.Module):
 
         # Concatenate and produce Q-values
         x = torch.cat([x_all, x_player], dim=1)
-        return self.output_layer(x)
+        return self.fc_action(x)
 
 def select_action(model, state, possible_actions, epsilon=0.1):
     if random.random() < epsilon:
         if DEV_MODE:
             print("random action selected on epsilon of: ",  epsilon)
         return random.choice(possible_actions)  # Exploration
-    
+
     # Separate the image and structured parts of the state
     x_image, x_structured = state
     x_image = torch.tensor(x_image, dtype=torch.float32).unsqueeze(0)  # Add batch dimension
     x_structured = torch.tensor(x_structured, dtype=torch.float32).unsqueeze(0)
-    
+
     # Get logits from the model
     logits = model(x_image, x_structured).detach().numpy().flatten()
-    
+
     # Select the index of the action with the highest logit (action with the highest score)
     action_idx = np.argmax(logits)
-    
+
     # Return the corresponding action (index)
     return possible_actions[action_idx]

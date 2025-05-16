@@ -12,6 +12,7 @@ import numpy as np
 from collections import deque
 from catan.QNN import GNNQNetwork
 from catan.serialization import BrickRepresentation
+from torch_geometric.data import Batch
 
 
 from catan.board import Board, Resource, RoadVertex, Road, DevelopmentCard, DevCard
@@ -222,7 +223,7 @@ class GNNRLModel:
         brick_rep.encode_all(player)
         
         # Board state: Multi-channel tensor
-        board_state = torch.tensor(brick_rep.board, dtype=torch.float32)
+        board_state = game.board.build_heterodata()
         
         # Player state: Structured vector
         player_state = torch.tensor(brick_rep.player_states, dtype=torch.float32).flatten()
@@ -237,7 +238,7 @@ class GNNRLModel:
             return self.get_action_heuristic(game,possible_actions, player)
         else:
             board_state, player_state = self.get_state(game, player)
-            board_state = board_state.unsqueeze(0)  # Add batch dimension
+            board_state = Batch.from_data_list([board_state])
             player_state = player_state.unsqueeze(0)
             
             # Get Q-values from the model
@@ -267,21 +268,19 @@ class GNNRLModel:
 
     def store_experience(self, state, action, reward, next_state, done):
         """Store the agent's experience in the replay buffer."""
-        board_state, player_state = state
-        next_board_state, next_player_state = next_state
+        board_state_hetero_data, player_state = state
+        next_board_state_hetero_data, next_player_state = next_state
 
         # Convert states to tensors
-        board_state_tensor = torch.tensor(board_state, dtype=torch.float32)
         player_state_tensor = torch.tensor(player_state, dtype=torch.float32)
-        next_board_state_tensor = torch.tensor(next_board_state, dtype=torch.float32)
         next_player_state_tensor = torch.tensor(next_player_state, dtype=torch.float32)
 
         # Store the experience
         self.replay_buffer.append((
-            (board_state_tensor, player_state_tensor),
+            (board_state_hetero_data, player_state_tensor),
             action,
             reward,
-            (next_board_state_tensor, next_player_state_tensor),
+            (next_board_state_hetero_data, next_player_state_tensor),
             done
         ))
 
@@ -297,11 +296,11 @@ class GNNRLModel:
         states, actions, rewards, next_states, dones = zip(*batch)
 
         # Convert to tensors
-        board_states = torch.stack([s[0] for s in states])
+        board_states = Batch.from_data_list([s[0] for s in states])
         player_states = torch.stack([s[1] for s in states])
         actions = torch.tensor([self.action_mapper.get_action_index(a) for a in actions], dtype=torch.long)
         rewards = torch.tensor(rewards, dtype=torch.float32)
-        next_board_states = torch.stack([s[0] for s in next_states])
+        next_board_states = Batch.from_data_list([s[0] for s in next_states])
         next_player_states = torch.stack([s[1] for s in next_states])
         dones = torch.tensor(dones, dtype=torch.float32)
 

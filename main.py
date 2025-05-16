@@ -2,13 +2,14 @@ import argparse
 import os
 import torch
 
+from catan.QNN import GNNQNetwork
 from globals import SELECTED_MODEL
 
 from catan.board import Board
 from catan.player import Player
 from catan.agent.random import RandomAgent
 from catan.agent.rl_agent import RL_Agent, RL_Model, QNetwork
-from catan.agent.gnn_rl_agent import GNNRLAgent
+from catan.agent.gnn_rl_agent import GNNRLAgent, GNNRLModel
 
 from catan.agent.human import HumanAgent
 from catan.agent.heuristic import HeuristicAgent
@@ -80,12 +81,12 @@ def load_or_create_model(model_path, board_channels, player_state_dim, action_di
     """Load a saved model if it exists, otherwise create a new one."""
     if os.path.exists(model_path):
         print(f"Loading model from {model_path}")
-        model = QNetwork(board_channels, player_state_dim, action_dim)
+        model = GNNQNetwork(player_state_dim, action_dim)
         model.load_state_dict(torch.load(model_path))
         model.eval()  # Set the model to evaluation mode
     else:
         print(f"No model found at {model_path}. Creating a new model.")
-        model = QNetwork(board_channels, player_state_dim, action_dim)
+        model = GNNQNetwork(player_state_dim, action_dim)
     return model
 
 
@@ -104,7 +105,7 @@ def main():
 
     # Load or create the model
     model = load_or_create_model(SELECTED_MODEL, board_channels, player_state_dim, action_dim)
-    rl_agent = RL_Model(model)
+    rl_agent = GNNRLModel(model)
 
     # Pass RL Agent to the UI
     catan_ui = CatanUI(lambda: game, serialization=serialization, rl_agent=rl_agent, model_path=SELECTED_MODEL)
