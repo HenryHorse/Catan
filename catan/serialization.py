@@ -148,10 +148,6 @@ class BrickRepresentation:
             self.player_states[9][player_index][10] = player.player.longest_road_size
             self.player_states[9][player_index][11] = 1 if player.player.has_largest_army else 0
             self.player_states[9][player_index][12] = player.player.army_size
-        
-        # Given player's current Dev Cards
-        for dev_card in given_player.unplayed_dev_cards:
-            self.player_states[2][dev_card.card_type.value] += 1
 
         self.player_states = self.flatten_nested_list(self.player_states)
 

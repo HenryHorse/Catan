@@ -10,7 +10,7 @@ import torch
 import torch.optim as optim
 import numpy as np
 from collections import deque
-from catan.QNN import QNetwork
+from catan.QNN import GNNQNetwork
 from catan.serialization import BrickRepresentation
 
 
@@ -24,20 +24,19 @@ from globals import DEV_MODE
 
 BOARD_SIZE = 5
 
-class RL_Agent(Agent):
+class GNNRLAgent(Agent):
     def __init__(self, board: Board, player: Player):
         super().__init__(board, player)
         
         # Define the dimensions for the Q-Network
-        board_channels = 4 + 1  # Number of players + 1 for board state
         player_state_dim = 13 * 4 + 5  # Player states + dev cards
         action_dim = 7  # Number of possible actions
         
         # Initialize the Q-Network
-        self.model = QNetwork(board_channels, player_state_dim, action_dim)
+        self.model = GNNQNetwork(player_state_dim, action_dim)
         
         # Initialize the RLAgent
-        self.rl_agent = RL_Model(self.model)
+        self.rl_agent = GNNRLModel(self.model)
 
     def get_action(self, game: 'Game', possible_actions: list[Action]) -> Action:
         return self.rl_agent.get_action(game, self.player, possible_actions)
@@ -52,8 +51,8 @@ class RL_Agent(Agent):
         return random.choice(options)
 
 
-class RL_Model:
-    def __init__(self, model: QNetwork, gamma=0.99, epsilon=1.0, epsilon_decay=0.99995, batch_size=12, learning_rate=0.001):
+class GNNRLModel:
+    def __init__(self, model: GNNQNetwork, gamma=0.99, epsilon=1.0, epsilon_decay=0.99995, batch_size=12, learning_rate=0.001):
         self.model = model
         self.gamma = gamma
         self.epsilon = epsilon

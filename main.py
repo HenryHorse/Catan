@@ -8,6 +8,7 @@ from catan.board import Board
 from catan.player import Player
 from catan.agent.random import RandomAgent
 from catan.agent.rl_agent import RL_Agent, RL_Model, QNetwork
+from catan.agent.gnn_rl_agent import GNNRLAgent
 
 from catan.agent.human import HumanAgent
 from catan.agent.heuristic import HeuristicAgent
@@ -48,11 +49,14 @@ def create_game(players) -> Game:
                 exit()
             agents.append(HumanAgent(board, player_list[i]))
         elif player == "R":
+            print("Random agent")
             agents.append(RandomAgent(board, player_list[i]))
         elif player == "H":
             agents.append(HeuristicAgent(board, player_list[i]))
         elif player == "N":
             agents.append(RL_Agent(board, player_list[i]))
+        elif player == "G":
+            agents.append(GNNRLAgent(board, player_list[i]))
         else:
             print("Invalid player type")
             exit()
@@ -63,6 +67,11 @@ def create_game(players) -> Game:
         PlayerAgent(player_list[2], agents[2]),
         PlayerAgent(player_list[3], agents[3])
     ])
+
+    heterodata = board.build_heterodata()
+    
+    # heterodata = heterodata.pin_memory()
+    # heterodata = heterodata.to('cuda:0', non_blocking=True)
 
     return new_game
 
@@ -90,7 +99,7 @@ def main():
 
     # Initialize RL Agent
     board_channels = args.num_players + 1  # Number of players + 1 for board state
-    player_state_dim = 1224  # Size of the flattened player_state
+    player_state_dim = 1001  # Size of the flattened player_state
     action_dim = 7  # Number of possible actions
 
     # Load or create the model

@@ -4,6 +4,10 @@ import torch.nn.functional as F
 import numpy as np
 import random
 
+import torch_geometric.nn as gnn
+from torch_geometric.data import HeteroData
+
+
 from globals import DEV_MODE
 
 
@@ -21,7 +25,7 @@ class QNetwork(nn.Module):
         self.fc2 = nn.Linear(hidden_dim, hidden_dim)
         
         # Final layer to output Q-values for each action
-        self.fc_action = nn.Linear(29696, action_dim)
+        self.fc_action = nn.Linear(29568 + hidden_dim, action_dim)
     
     def forward(self, x_board, x_player):
         # Debugging: Print shapes
@@ -44,7 +48,57 @@ class QNetwork(nn.Module):
         x = torch.cat((x_board, x_player), dim=1)
         q_values = self.fc_action(x)
         return q_values
+
+class GNNQNetwork(nn.Module):
+    def __init__(self, player_state_dim: int, action_dim: int, hidden_dim: int = 128, out_graph_dim: int = 256):
+        super(GNNQNetwork, self).__init__()
+        
+        self.node_encoders = nn.ModuleDict({
+            'tile': nn.linear(8, hidden_dim),
+            'vertex': nn.Linear(13, hidden_dim),
+            'road': nn.Linear(4, hidden_dim),
+        })
+
+        self.hetero_conv1 = gnn.HeteroConv({
+            ('road_vertex', 'road_vertex_to_tile', 'tile'): gnn.GATConv(hidden_dim, hidden_dim),
+            ('tile', 'tile_to_road_vertex', 'road_vertex'): gnn.GATConv(hidden_dim, hidden_dim),
+            ('road', 'road_to_road_vertex', 'road_vertex'): gnn.GATConv(hidden_dim, hidden_dim),
+            ('road_vertex', 'road_vertex_to_road', 'road'): gnn.GATConv(hidden_dim, hidden_dim),
+            ('tile', 'tile_to_road', 'road'): gnn.GATConv(hidden_dim, hidden_dim),
+            ('road', 'road_to_tile', 'tile'): gnn.GATConv(hidden_dim, hidden_dim),
+        }, aggr='sum')
+
+        # Fully connected layers for player state
+        self.fc1 = nn.Linear(player_state_dim, hidden_dim)  # Input size: player_state_dim
+        self.fc2 = nn.Linear(hidden_dim, hidden_dim)
+        
+        # Final layer to output Q-values for each action
+        self.fc_action = nn.Linear(29568 + hidden_dim, action_dim)
     
+    def forward(self, data: HeteroData, x_player):
+        # Encode initial features for each node type
+        x_dict = {
+            node_type: self.node_encoders[node_type](data[node_type].x)
+            for node_type in data.node_types
+        }
+
+        # Apply heterogeneous graph convolution
+        x_dict = self.hetero_conv(x_dict, data.edge_index_dict)
+
+        # Pool all node representations (i am not typing allat)
+        x_all = torch.cat([
+            gnn.global_mean_pool(x_dict[node_type], batch=data[node_type].batch)
+            for node_type in x_dict
+        ], dim=1)
+
+        # Process player state
+        x_player = x_player.view(x_player.size(0), -1)  # Flatten player_state
+        x_player = torch.relu(self.fc1(x_player))
+        x_player = torch.relu(self.fc2(x_player))
+
+        # Concatenate and produce Q-values
+        x = torch.cat([x_all, x_player], dim=1)
+        return self.output_layer(x)
 
 def select_action(model, state, possible_actions, epsilon=0.1):
     if random.random() < epsilon:

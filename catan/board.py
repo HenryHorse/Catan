@@ -10,6 +10,8 @@ import random
 import enum
 import itertools
 import networkx as nx
+import torch
+from torch_geometric.data import HeteroData
 
 from catan.util import Point, CubeCoordinates, TILE_TO_TILE_DIRECTIONS, TILE_TO_ROAD_VERTEX_DIRECTIONS
 
@@ -507,3 +509,84 @@ class Board:
         for road in self.roads:
             for road_vert in road.endpoints:
                 self.add_road_to_road_vertex_edge(road, road_vert)
+    
+    def build_heterodata(self) -> HeteroData:
+        data = HeteroData()
+
+        # Tile Features: [Resource Type x 5, Desert, Has Robber, Number]
+        # Road Vertex Features: [Is Player x 4, Is Settlement, Is City, Is Harbor, Harbor Type x 6]
+        # Road Features: [Is Player x 4]
+        
+        tile_features = []
+        for tile in self.tiles.values():
+            features = [0] * 8
+            if tile.resource is not None:
+                features[tile.resource.value] = 1
+            else:
+                features[5] = 1
+            features[6] = int(tile.has_robber)
+            features[7] = tile.number
+            tile_features.append(features)
+        data['tile'].x = torch.tensor(tile_features, dtype=torch.float)
+
+        road_vertex_features = []
+        for road_vertex in self.road_vertices.values():
+            features = [0] * 13
+            if road_vertex.owner is not None:
+                features[road_vertex.owner] = 1
+            features[4] = int(road_vertex.has_settlement)
+            features[5] = int(road_vertex.has_city)
+            if road_vertex.harbor is not None:
+                features[6] = 1
+                features[7 + road_vertex.harbor.value] = 1
+            road_vertex_features.append(features)
+        data['road_vertex'].x = torch.tensor(road_vertex_features, dtype=torch.float)
+
+        road_features = []
+        for road in self.roads:
+            features = [0] * 4
+            if road.owner is not None:
+                features[road.owner] = 1
+            road_features.append(features)
+        data['road'].x = torch.tensor(road_features, dtype=torch.float)
+
+        road_vertex_index_lookup = {road_vertex: i for i, road_vertex in enumerate(self.road_vertices.values())}
+        tile_index_lookup = {tile: i for i, tile in enumerate(self.tiles.values())}
+
+        road_vertex_to_tile_edges = [[], []]
+        tile_to_road_vertex_edges = [[], []]
+        for tile_index, tile in enumerate(self.tiles.values()):
+            for road_vertex in tile.adjacent_road_vertices:
+                road_vertex_index = road_vertex_index_lookup[road_vertex]
+                road_vertex_to_tile_edges[0].append(road_vertex_index)
+                road_vertex_to_tile_edges[1].append(tile_index)
+                tile_to_road_vertex_edges[0].append(tile_index)
+                tile_to_road_vertex_edges[1].append(road_vertex_index)
+        data['road_vertex', 'road_vertex_to_tile', 'tile'].edge_index = torch.tensor(road_vertex_to_tile_edges, dtype=torch.long)
+        data['tile', 'tile_to_road_vertex', 'road_vertex'].edge_index = torch.tensor(tile_to_road_vertex_edges, dtype=torch.long)
+
+        road_to_road_vertex_edges = [[], []]
+        road_vertex_to_road_edges = [[], []]
+        for road_index, road in enumerate(self.roads):
+            for road_vertex in road.endpoints:
+                road_vertex_index = road_vertex_index_lookup[road_vertex]
+                road_to_road_vertex_edges[0].append(road_index)
+                road_to_road_vertex_edges[1].append(road_vertex_index)
+                road_vertex_to_road_edges[0].append(road_vertex_index)
+                road_vertex_to_road_edges[1].append(road_index)
+        data['road', 'road_to_road_vertex', 'road_vertex'].edge_index = torch.tensor(road_to_road_vertex_edges, dtype=torch.long)
+        data['road_vertex', 'road_vertex_to_road', 'road'].edge_index = torch.tensor(road_vertex_to_road_edges, dtype=torch.long)
+
+        tile_to_road_edges = [[], []]
+        road_to_tile_edges = [[], []]
+        for road_index, road in enumerate(self.roads):
+            for tile in road.adjacent_tiles:
+                tile_index = tile_index_lookup[tile]
+                tile_to_road_edges[0].append(tile_index)
+                tile_to_road_edges[1].append(road_index)
+                road_to_tile_edges[0].append(road_index)
+                road_to_tile_edges[1].append(tile_index)
+        data['tile', 'tile_to_road', 'road'].edge_index = torch.tensor(tile_to_road_edges, dtype=torch.long)
+        data['road', 'road_to_tile', 'tile'].edge_index = torch.tensor(road_to_tile_edges, dtype=torch.long)
+
+        return data
