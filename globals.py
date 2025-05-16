@@ -1,3 +1,3 @@
 DEV_MODE = False
-NUM_GAMES = 20
-SELECTED_MODEL = "rl_Model_V3"
+NUM_GAMES = 100
+SELECTED_MODEL = "rl_Model_V7"

@@ -90,7 +90,7 @@ def main():
 
     # Initialize RL Agent
     board_channels = args.num_players + 1  # Number of players + 1 for board state
-    player_state_dim = 1224  # Size of the flattened player_state
+    player_state_dim = 1001  # Size of the flattened player_state
     action_dim = 7  # Number of possible actions
 
     # Load or create the model

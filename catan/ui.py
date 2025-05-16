@@ -812,10 +812,9 @@ class CatanUI:
                         print(f'-------- Player {self.game.player_turn_index + 1} takes turn {self.game.main_turns_elapsed + 1} --------')
                     self.game.do_full_turn()
 
-                    self.serialization.encode_player_states(self.game, self.game.player_agents[1].player)
+                    self.serialization.encode_all(current_player.player)
                     if DEV_MODE:
                         print("Player States (Player 2):", self.serialization.player_states)
-                    self.serialization.recursive_serialize(self.game, self.game.board.center_tile, None, None)
                     if DEV_MODE:
                         print("Player 2 Board State:", self.serialization.board[1])
 
@@ -909,8 +908,7 @@ class CatanUI:
                     self.game.do_full_turn()
 
                     if train == 1:
-                        self.serialization.encode_player_states(self.game, self.game.player_agents[1].player)
-                        self.serialization.recursive_serialize(self.game, self.game.board.center_tile, None, None)
+                        self.serialization.encode_all(self.game.player_agents[self.game.player_turn_index].player)
                         board_state = torch.tensor(self.serialization.board, dtype=torch.float32)
                         player_state = self.serialization.flatten_nested_list(self.serialization.player_states)
                         player_state = torch.tensor(player_state, dtype=torch.float32)

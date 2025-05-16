@@ -53,7 +53,7 @@ class RL_Agent(Agent):
 
 
 class RL_Model:
-    def __init__(self, model: QNetwork, gamma=0.99, epsilon=1.0, epsilon_decay=0.99995, batch_size=12, learning_rate=0.001):
+    def __init__(self, model: QNetwork, gamma=0.99, epsilon=0.50, epsilon_decay=0.99995, batch_size=12, learning_rate=0.001):
         self.model = model
         self.gamma = gamma
         self.epsilon = epsilon
@@ -232,7 +232,8 @@ class RL_Model:
 
     def get_action(self, game: 'Game', player: 'Player', possible_actions: list[Action]):
         """Select an action using epsilon-greedy strategy"""
-        if random.random() < self.epsilon:
+        #if random.random() < self.epsilon:
+        if False:
             if DEV_MODE:
                 print("Heuristic action selected on epsilon of: ",  self.epsilon)
             return self.get_action_heuristic(game,possible_actions, player)
@@ -240,7 +241,6 @@ class RL_Model:
             board_state, player_state = self.get_state(game, player)
             board_state = board_state.unsqueeze(0)  # Add batch dimension
             player_state = player_state.unsqueeze(0)
-            
             # Get Q-values from the model
             q_values = self.model.forward(board_state, player_state).detach().numpy().flatten()
             

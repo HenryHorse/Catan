@@ -133,26 +133,43 @@ class BrickRepresentation:
                     elif act.giving.count(resource) == 2:  # Only consider 4:1 trades
                         self.player_states[7][resource_index] = 1  # Mark that a 4:1 trade is possible
 
-        # Encode player states
-        for player_index, player in enumerate(game.player_agents):
-            self.player_states[9][player_index][0] = player.player.resources[Resource.WOOD]
-            self.player_states[9][player_index][1] = player.player.resources[Resource.GRAIN]
-            self.player_states[9][player_index][2] = player.player.resources[Resource.SHEEP]
-            self.player_states[9][player_index][3] = player.player.resources[Resource.ORE]
-            self.player_states[9][player_index][4] = player.player.resources[Resource.BRICK]
-            self.player_states[9][player_index][5] = player.player.free_roads_remaining
-            self.player_states[9][player_index][6] = player.player.available_cities
-            self.player_states[9][player_index][7] = player.player.available_settlements
-            self.player_states[9][player_index][8] = player.player.get_victory_points()
-            self.player_states[9][player_index][9] = 1 if player.player.has_longest_road else 0
-            self.player_states[9][player_index][10] = player.player.longest_road_size
-            self.player_states[9][player_index][11] = 1 if player.player.has_largest_army else 0
-            self.player_states[9][player_index][12] = player.player.army_size
+        num = len(game.player_agents)
+        agent_idx = self.agent_player_num
         
-        # Given player's current Dev Cards
-        for dev_card in given_player.unplayed_dev_cards:
-            self.player_states[2][dev_card.card_type.value] += 1
+        # build a new ordering: [agent_idx, all others…]
+        order = [agent_idx] + [i for i in range(num) if i != agent_idx]
 
+        # prepare an empty 2D block of shape (num_players × 13)
+        player_block = [[0]*13 for _ in range(num)]
+
+        # fill it in according to our new order
+        for new_pos, old_pos in enumerate(order):
+            p = game.player_agents[old_pos].player
+            stats = [
+                p.resources[Resource.WOOD],
+                p.resources[Resource.GRAIN],
+                p.resources[Resource.SHEEP],
+                p.resources[Resource.ORE],
+                p.resources[Resource.BRICK],
+                p.free_roads_remaining,
+                p.available_cities,
+                p.available_settlements,
+                p.get_victory_points(),
+                1 if p.has_longest_road else 0,
+                p.longest_road_size,
+                1 if p.has_largest_army else 0,
+                p.army_size,
+            ]
+            player_block[new_pos] = stats
+
+        # overwrite the old slot‑9 with our reordered block
+        self.player_states[9] = player_block
+
+        # 3) --- Now your unplayed‑dev‑cards loop as updated before ---
+        for dev_card in given_player.unplayed_dev_cards:
+            self.player_states[10][dev_card.card_type.value] += 1
+
+        # 4) flatten everything
         self.player_states = self.flatten_nested_list(self.player_states)
 
         

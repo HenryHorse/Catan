@@ -17,7 +17,7 @@ class QNetwork(nn.Module):
         self.conv3 = nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1)
         
         # Fully connected layers for player state
-        self.fc1 = nn.Linear(player_state_dim, hidden_dim)  # Input size: player_state_dim
+        self.fc1 = nn.Linear(1001, hidden_dim)  # Input size: player_state_dim
         self.fc2 = nn.Linear(hidden_dim, hidden_dim)
         
         # Final layer to output Q-values for each action
