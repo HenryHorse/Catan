@@ -5,7 +5,7 @@ import math
 import numpy as np
 import torch
 
-from catan.agent.gnn_rl_agent import GNNRLModel
+from catan.agent.gnn_rl_agent import GNNRLModel, GNNRLAgent
 from catan.agent.random import RandomAgent
 from catan.agent.human import HumanAgent
 from catan.board import DevelopmentCard, Harbor, RoadVertex, Board, DevCard
@@ -31,7 +31,7 @@ class CatanUI:
     game: Game | None
     game_generator: Callable[[], Game]
     screen: pygame.Surface | None
-    rl_agent: GNNRLModel | None
+    rl_agent: GNNRLModel | RL_Model | None
     model_path: str | None
 
     screen_width: int
@@ -53,7 +53,7 @@ class CatanUI:
     steal_candidates: list[int] = []
     steal_modal_rects: list[tuple[pygame.Rect, int]] = []
 
-    def __init__(self, game_generator: Callable[[], Game], serialization: BrickRepresentation, rl_agent: GNNRLModel = None, model_path: str = None):
+    def __init__(self, game_generator: Callable[[], Game], serialization: BrickRepresentation, rl_agent: GNNRLModel | RL_Model = None, model_path: str = None):
         self.game = None
         self.game_generator = game_generator
         self.screen = None
@@ -767,7 +767,10 @@ class CatanUI:
                     if DEV_MODE:
                         print(f'-------- RL AGENT  --------')
                     # Convert board state to tensor
-                    board_state = self.game.board.build_heterodata()
+                    if isinstance(self.rl_agent, GNNRLModel):
+                        board_state = self.game.board.build_heterodata()
+                    else:
+                        board_state = torch.tensor(self.serialization.board, dtype=torch.float32)
 
                     # Flatten player_states and convert to tensor
                     player_state = self.serialization.flatten_nested_list(self.serialization.player_states)
@@ -784,7 +787,10 @@ class CatanUI:
                     reward = self.calculate_reward(current_player_agent.player)
 
                     # Convert next states to tensors
-                    next_board_state = self.game.board.build_heterodata()
+                    if isinstance(self.rl_agent, GNNRLModel):
+                        next_board_state = self.game.board.build_heterodata()
+                    else:
+                        next_board_state = torch.tensor(self.serialization.board, dtype=torch.float32)
                     next_player_state = torch.tensor(player_state, dtype=torch.float32)  # Reuse flattened player_state
                     next_state = (next_board_state, next_player_state)
 
@@ -816,14 +822,17 @@ class CatanUI:
                     self.serialization.encode_player_states(self.game, self.game.player_agents[1].player)
                     if DEV_MODE:
                         print("Player States (Player 2):", self.serialization.player_states)
-                    self.serialization.recursive_serialize(self.game, self.game.board.center_tile, None, None)
+                    self.serialization.encode_board_recursive(self.game, self.game.board.center_tile, None)
                     if DEV_MODE:
                         print("Player 2 Board State:", self.serialization.board[1])
 
                     # Store experience and train RL agent
                     if self.rl_agent:
                         # Convert board state to tensor
-                        board_state = self.game.board.build_heterodata()
+                        if isinstance(self.rl_agent, GNNRLModel):
+                            board_state = self.game.board.build_heterodata()
+                        else:
+                            board_state = torch.tensor(self.serialization.board, dtype=torch.float32)
 
                         # Flatten player_states and convert to tensor
                         player_state = self.serialization.flatten_nested_list(self.serialization.player_states)
@@ -840,7 +849,10 @@ class CatanUI:
                         reward = self.calculate_reward(current_player_agent.player)
 
                         # Convert next states to tensors
-                        next_board_state = self.game.board.build_heterodata()
+                        if isinstance(self.rl_agent, GNNRLModel):
+                            next_board_state = self.game.board.build_heterodata()
+                        else:
+                            next_board_state = torch.tensor(self.serialization.board, dtype=torch.float32)
                         next_player_state = torch.tensor(player_state, dtype=torch.float32)  # Reuse flattened player_state
                         next_state = (next_board_state, next_player_state)
 
@@ -911,8 +923,11 @@ class CatanUI:
 
                     if train == 1:
                         self.serialization.encode_player_states(self.game, self.game.player_agents[1].player)
-                        self.serialization.recursive_serialize(self.game, self.game.board.center_tile, None, None)
-                        board_state = self.game.board.build_heterodata()
+                        self.serialization.encode_board_recursive(self.game, self.game.board.center_tile, None)
+                        if isinstance(self.rl_agent, GNNRLModel):
+                            board_state = self.game.board.build_heterodata()
+                        else:
+                            board_state = torch.tensor(self.serialization.board, dtype=torch.float32)
                         player_state = self.serialization.flatten_nested_list(self.serialization.player_states)
                         player_state = torch.tensor(player_state, dtype=torch.float32)
                         player_state = player_state.unsqueeze(0)  # Add batch dimension
@@ -922,8 +937,11 @@ class CatanUI:
                         possible_actions = current_player_agent.player._get_all_possible_actions_normal(self.game.board)
                         action = self.rl_agent.get_action(self.game, current_player_agent.player, possible_actions)
                         reward = self.calculate_reward(current_player_agent.player)
-                        
-                        next_board_state = self.game.board.build_heterodata()
+
+                        if isinstance(self.rl_agent, GNNRLModel):
+                            next_board_state = self.game.board.build_heterodata()
+                        else:
+                            next_board_state = torch.tensor(self.serialization.board, dtype=torch.float32)
                         next_player_state = torch.tensor(player_state, dtype=torch.float32)
                         next_state = (next_board_state, next_player_state)
                         

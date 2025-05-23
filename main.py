@@ -3,7 +3,7 @@ import os
 import torch
 
 from catan.QNN import GNNQNetwork
-from globals import SELECTED_MODEL
+from globals import SELECTED_MODEL, SELECTED_GNN_MODEL
 
 from catan.board import Board
 from catan.player import Player
@@ -21,7 +21,7 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description="Settlers of Catan board visualizer")
     parser.add_argument("--board-size", type=int, default=3, help="Size of the board (default: 3)")
     parser.add_argument("--num-players", type=int, default=4, help="Number of players (default: 4)")
-    parser.add_argument("--players", type=str, default="RHNR", help="Player types, Human = U, Random = R, Heuristic = H, RL_Agent = N")
+    parser.add_argument("--players", type=str, default="RHNG", help="Player types, Human = U, Random = R, Heuristic = H, RL_Agent = N, GNNRLAgent = G")
     parser.add_argument("--sim", action="store_true", help="Enable simulation statistics")
     parser.add_argument("--train", action="store_true", help="Enable training")
     return parser.parse_args()
@@ -77,7 +77,7 @@ def create_game(players) -> Game:
     return new_game
 
 
-def load_or_create_model(model_path, board_channels, player_state_dim, action_dim):
+def load_or_create_gnn_model(model_path, player_state_dim, action_dim):
     """Load a saved model if it exists, otherwise create a new one."""
     if os.path.exists(model_path):
         print(f"Loading model from {model_path}")
@@ -87,6 +87,19 @@ def load_or_create_model(model_path, board_channels, player_state_dim, action_di
     else:
         print(f"No model found at {model_path}. Creating a new model.")
         model = GNNQNetwork(player_state_dim, action_dim)
+    return model
+
+
+def load_or_create_model(model_path, board_channels, player_state_dim, action_dim):
+    """Load a saved model if it exists, otherwise create a new one."""
+    if os.path.exists(model_path):
+        print(f"Loading model from {model_path}")
+        model = QNetwork(board_channels, player_state_dim, action_dim)
+        model.load_state_dict(torch.load(model_path))
+        model.eval()  # Set the model to evaluation mode
+    else:
+        print(f"No model found at {model_path}. Creating a new model.")
+        model = QNetwork(board_channels, player_state_dim, action_dim)
     return model
 
 
@@ -105,7 +118,9 @@ def main():
 
     # Load or create the model
     model = load_or_create_model(SELECTED_MODEL, board_channels, player_state_dim, action_dim)
-    rl_agent = GNNRLModel(model)
+    rl_agent = RL_Model(model)
+    gnn_model = load_or_create_gnn_model(SELECTED_GNN_MODEL, player_state_dim, action_dim)
+    # rl_agent = GNNRLModel(gnn_model)
 
     # Pass RL Agent to the UI
     catan_ui = CatanUI(lambda: game, serialization=serialization, rl_agent=rl_agent, model_path=SELECTED_MODEL)
