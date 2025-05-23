@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING
 import random
+import os
 
 from catan.util import CubeCoordinates
 from catan.agent import Agent
@@ -25,8 +26,21 @@ from globals import DEV_MODE
 
 BOARD_SIZE = 5
 
+
+def load_or_create_graph_model(model_path, player_state_dim, action_dim):
+    """Load a saved model if it exists, otherwise create a new one."""
+    if os.path.exists(model_path):
+        print(f"Loading model from {model_path}")
+        model = GNNQNetwork(player_state_dim, action_dim)
+        model.load_state_dict(torch.load(model_path))
+        model.eval()  # Set the model to evaluation mode
+    else:
+        print(f"No model found at {model_path}. Creating a new model.")
+        model = GNNQNetwork(player_state_dim, action_dim)
+    return model
+
 class GNNRLAgent(Agent):
-    def __init__(self, board: Board, player: Player):
+    def __init__(self, board: Board, player: Player, model_path: str | None):
         super().__init__(board, player)
         
         # Define the dimensions for the Q-Network
@@ -34,7 +48,9 @@ class GNNRLAgent(Agent):
         action_dim = 7  # Number of possible actions
         
         # Initialize the Q-Network
-        self.model = GNNQNetwork(player_state_dim, action_dim)
+        self.model_path = model_path
+        self.model = load_or_create_graph_model(self.model_path, player_state_dim, action_dim)
+
         
         # Initialize the RLAgent
         self.rl_agent = GNNRLModel(self.model)
@@ -50,6 +66,22 @@ class GNNRLAgent(Agent):
     
     def get_player_to_steal_from(self, game: 'Game', options: list[int]) -> int:
         return random.choice(options)
+
+
+    def store_experience(self, state, action, reward, next_state, done):
+        self.rl_agent.store_experience(state, action, reward, next_state, done)
+
+    def train(self):
+        self.rl_agent.train()
+
+    def get_model(self):
+        return self.rl_agent.model
+
+    def save_model(self):
+        if self.model_path:
+            torch.save(self.model.state_dict(), self.model_path)
+            if DEV_MODE:
+                print(f"Model saved to {self.model_path}")
 
 
 class GNNRLModel:

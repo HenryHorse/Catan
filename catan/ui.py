@@ -31,7 +31,6 @@ class CatanUI:
     game: Game | None
     game_generator: Callable[[], Game]
     screen: pygame.Surface | None
-    rl_agent: GNNRLModel | RL_Model | None
     model_path: str | None
 
     screen_width: int
@@ -53,13 +52,13 @@ class CatanUI:
     steal_candidates: list[int] = []
     steal_modal_rects: list[tuple[pygame.Rect, int]] = []
 
-    def __init__(self, game_generator: Callable[[], Game], serialization: BrickRepresentation, rl_agent: GNNRLModel | RL_Model = None, model_path: str = None):
+    def __init__(self, game_generator: Callable[[], Game], serialization: BrickRepresentation, grid_model_path: str = None, graph_model_path: str = None):
         self.game = None
         self.game_generator = game_generator
         self.screen = None
         self.serialization = serialization
-        self.rl_agent = rl_agent
-        self.model_path = model_path
+        self.grid_model_path = grid_model_path
+        self.graph_model_path = graph_model_path
 
         self.trade_resource_out = None
         self.trade_resource_in = None
@@ -762,12 +761,15 @@ class CatanUI:
                 if DEV_MODE:
                     print("Player 2 Board State:", self.serialization.board[1])
 
-                # Store experience and train RL agent
-                if self.rl_agent:
+
+
+                current_player_agent = self.game.player_agents[self.game.player_turn_index]
+                agent = current_player_agent.agent
+
+                if hasattr(agent, 'store_experience') and hasattr(agent, 'train'):
                     if DEV_MODE:
-                        print(f'-------- RL AGENT  --------')
-                    # Convert board state to tensor
-                    if isinstance(self.rl_agent, GNNRLModel):
+                        print(f'-------- {agent.__class__.__name__} --------')
+                    if isinstance(agent, GNNRLAgent):
                         board_state = self.game.board.build_heterodata()
                     else:
                         board_state = torch.tensor(self.serialization.board, dtype=torch.float32)
@@ -780,27 +782,27 @@ class CatanUI:
                     player_state = player_state.unsqueeze(0)  # Add batch dimension
 
                     state = (board_state, player_state)
-
-                    current_player_agent = self.game.player_agents[self.game.player_turn_index]
                     possible_actions = current_player_agent.player._get_all_possible_actions_normal(self.game.board)
-                    action = self.rl_agent.get_action(self.game, current_player_agent.player, possible_actions)
+                    action = agent.get_action(self.game, possible_actions)
                     reward = self.calculate_reward(current_player_agent.player)
 
                     # Convert next states to tensors
-                    if isinstance(self.rl_agent, GNNRLModel):
+                    if isinstance(agent, GNNRLAgent):
                         next_board_state = self.game.board.build_heterodata()
                     else:
                         next_board_state = torch.tensor(self.serialization.board, dtype=torch.float32)
-                    next_player_state = torch.tensor(player_state, dtype=torch.float32)  # Reuse flattened player_state
+                    next_player_state = torch.tensor(player_state,
+                                                     dtype=torch.float32)  # Reuse flattened player_state
                     next_state = (next_board_state, next_player_state)
 
                     done = self.game.winning_player_index is not None
 
-                    self.rl_agent.store_experience(state, action, reward, next_state, done)
+                    agent.store_experience(state, action, reward, next_state, done)
 
-                    self.rl_agent.train()
+                    agent.train()
                     # Save the model
-                    if self.rl_agent and self.model_path:
+                    # TODO abstract into agent class
+                    if self.model_path:
                         torch.save(self.rl_agent.model.state_dict(), self.model_path)
                         if DEV_MODE:
                             print(f"Model saved to {self.model_path}")

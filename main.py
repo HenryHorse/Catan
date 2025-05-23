@@ -3,7 +3,7 @@ import os
 import torch
 
 from catan.QNN import GNNQNetwork
-from globals import SELECTED_MODEL, SELECTED_GNN_MODEL
+from globals import SELECTED_GRAPH_MODEL, SELECTED_GRID_MODEL
 
 from catan.board import Board
 from catan.player import Player
@@ -55,9 +55,9 @@ def create_game(players) -> Game:
         elif player == "H":
             agents.append(HeuristicAgent(board, player_list[i]))
         elif player == "N":
-            agents.append(RL_Agent(board, player_list[i]))
+            agents.append(RL_Agent(board, player_list[i], model_path=SELECTED_GRID_MODEL))
         elif player == "G":
-            agents.append(GNNRLAgent(board, player_list[i]))
+            agents.append(GNNRLAgent(board, player_list[i], model_path=SELECTED_GRAPH_MODEL))
         else:
             print("Invalid player type")
             exit()
@@ -77,53 +77,19 @@ def create_game(players) -> Game:
     return new_game
 
 
-def load_or_create_gnn_model(model_path, player_state_dim, action_dim):
-    """Load a saved model if it exists, otherwise create a new one."""
-    if os.path.exists(model_path):
-        print(f"Loading model from {model_path}")
-        model = GNNQNetwork(player_state_dim, action_dim)
-        model.load_state_dict(torch.load(model_path))
-        model.eval()  # Set the model to evaluation mode
-    else:
-        print(f"No model found at {model_path}. Creating a new model.")
-        model = GNNQNetwork(player_state_dim, action_dim)
-    return model
-
-
-def load_or_create_model(model_path, board_channels, player_state_dim, action_dim):
-    """Load a saved model if it exists, otherwise create a new one."""
-    if os.path.exists(model_path):
-        print(f"Loading model from {model_path}")
-        model = QNetwork(board_channels, player_state_dim, action_dim)
-        model.load_state_dict(torch.load(model_path))
-        model.eval()  # Set the model to evaluation mode
-    else:
-        print(f"No model found at {model_path}. Creating a new model.")
-        model = QNetwork(board_channels, player_state_dim, action_dim)
-    return model
-
 
 
 def main():
     args = parse_arguments()
+
+
     game = create_game(args.players)
     # Hard coded to 4 players since no argument functionality at this moment
     serialization = BrickRepresentation(5, 4, None, 1)
     serialization.game = game
 
-    # Initialize RL Agent
-    board_channels = args.num_players + 1  # Number of players + 1 for board state
-    player_state_dim = 1001  # Size of the flattened player_state
-    action_dim = 7  # Number of possible actions
-
-    # Load or create the model
-    model = load_or_create_model(SELECTED_MODEL, board_channels, player_state_dim, action_dim)
-    rl_agent = RL_Model(model)
-    gnn_model = load_or_create_gnn_model(SELECTED_GNN_MODEL, player_state_dim, action_dim)
-    # rl_agent = GNNRLModel(gnn_model)
-
     # Pass RL Agent to the UI
-    catan_ui = CatanUI(lambda: game, serialization=serialization, rl_agent=rl_agent, model_path=SELECTED_MODEL)
+    catan_ui = CatanUI(lambda: game, serialization=serialization)
     catan_ui.open_and_loop(doSimulate=args.sim, train=args.train)
 
 
