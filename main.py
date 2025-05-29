@@ -8,7 +8,7 @@ from globals import SELECTED_GRAPH_MODEL, SELECTED_GRID_MODEL
 from catan.board import Board
 from catan.player import Player
 from catan.agent.random import RandomAgent
-from catan.agent.rl_agent import RL_Agent, RL_Model, QNetwork
+from catan.agent.rl_agent import RL_Agent, RL_Model, QNetwork, load_or_create_grid_model
 from catan.agent.gnn_rl_agent import GNNRLAgent, GNNRLModel
 
 from catan.agent.human import HumanAgent
@@ -55,7 +55,7 @@ def create_game(players) -> Game:
         elif player == "H":
             agents.append(HeuristicAgent(board, player_list[i]))
         elif player == "N":
-            agents.append(RL_Agent(board, player_list[i], model_path=SELECTED_GRID_MODEL))
+            agents.append(RL_Agent(board, player_list[i]))
         elif player == "G":
             agents.append(GNNRLAgent(board, player_list[i], model_path=SELECTED_GRAPH_MODEL))
         else:
@@ -69,11 +69,6 @@ def create_game(players) -> Game:
         PlayerAgent(player_list[3], agents[3])
     ])
 
-    heterodata = board.build_heterodata()
-    
-    # heterodata = heterodata.pin_memory()
-    # heterodata = heterodata.to('cuda:0', non_blocking=True)
-
     return new_game
 
 
@@ -81,7 +76,6 @@ def create_game(players) -> Game:
 
 def main():
     args = parse_arguments()
-
 
     game = create_game(args.players)
     # Hard coded to 4 players since no argument functionality at this moment

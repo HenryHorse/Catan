@@ -20,11 +20,11 @@ from catan.player import Player, Action, BuildSettlementAction, BuildCityAction,
     BuyDevelopmentCardAction, TradeAction, UseDevelopmentCardAction, EndTurnAction
 from catan.game import GamePhase
 
-from globals import DEV_MODE
-
+from globals import DEV_MODE, SELECTED_GRID_MODEL, BOARD_CHANNELS, PLAYER_STATE_DIM, ACTION_DIM
 
 BOARD_SIZE = 5
 
+# I put this function here because each Agent should have an associated model
 def load_or_create_grid_model(model_path, board_channels, player_state_dim, action_dim):
     """Load a saved model if it exists, otherwise create a new one."""
     if os.path.exists(model_path):
@@ -38,20 +38,13 @@ def load_or_create_grid_model(model_path, board_channels, player_state_dim, acti
     return model
 
 class RL_Agent(Agent):
-    def __init__(self, board: Board, player: Player, model_path: str | None):
-        super().__init__(board, player)
-        
-        # Define the dimensions for the Q-Network
-        board_channels = 4 + 1  # Number of players + 1 for board state
-        player_state_dim = 13 * 4 + 5  # Player states + dev cards
-        action_dim = 7  # Number of possible actions
+    shared_model = load_or_create_grid_model(SELECTED_GRID_MODEL, BOARD_CHANNELS, PLAYER_STATE_DIM, ACTION_DIM)
 
-        self.model_path = model_path
-        # Initialize the Q-Network
-        self.model = load_or_create_grid_model(model_path, board_channels, player_state_dim, action_dim)
-        
+    def __init__(self, board: Board, player: Player):
+        super().__init__(board, player)
+
         # Initialize the RLAgent
-        self.rl_agent = RL_Model(self.model)
+        self.rl_agent = RL_Model(RL_Agent.shared_model)
 
     def get_action(self, game: 'Game', possible_actions: list[Action]) -> Action:
         return self.rl_agent.get_action(game, self.player, possible_actions)
@@ -75,10 +68,9 @@ class RL_Agent(Agent):
         return self.rl_agent.model
 
     def save_model(self):
-        if self.model_path:
-            torch.save(self.model.state_dict(), self.model_path)
-            if DEV_MODE:
-                print(f"Model saved to {self.model_path}")
+        torch.save(RL_Agent.shared_model.state_dict(), SELECTED_GRID_MODEL)
+        if DEV_MODE:
+            print(f"Model saved to {SELECTED_GRID_MODEL}")
 
 
 class RL_Model:

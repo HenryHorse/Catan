@@ -21,8 +21,7 @@ from catan.player import Player, Action, BuildSettlementAction, BuildCityAction,
     BuyDevelopmentCardAction, TradeAction, UseDevelopmentCardAction, EndTurnAction
 from catan.game import GamePhase
 
-from globals import DEV_MODE
-
+from globals import DEV_MODE, SELECTED_GRAPH_MODEL, PLAYER_STATE_DIM, ACTION_DIM
 
 BOARD_SIZE = 5
 
@@ -40,20 +39,13 @@ def load_or_create_graph_model(model_path, player_state_dim, action_dim):
     return model
 
 class GNNRLAgent(Agent):
+    shared_model = load_or_create_graph_model(SELECTED_GRAPH_MODEL, PLAYER_STATE_DIM, ACTION_DIM)
+
     def __init__(self, board: Board, player: Player, model_path: str | None):
         super().__init__(board, player)
-        
-        # Define the dimensions for the Q-Network
-        player_state_dim = 13 * 4 + 5  # Player states + dev cards
-        action_dim = 7  # Number of possible actions
-        
-        # Initialize the Q-Network
-        self.model_path = model_path
-        self.model = load_or_create_graph_model(self.model_path, player_state_dim, action_dim)
 
-        
         # Initialize the RLAgent
-        self.rl_agent = GNNRLModel(self.model)
+        self.rl_agent = GNNRLModel(GNNRLAgent.shared_model)
 
     def get_action(self, game: 'Game', possible_actions: list[Action]) -> Action:
         return self.rl_agent.get_action(game, self.player, possible_actions)
@@ -78,10 +70,9 @@ class GNNRLAgent(Agent):
         return self.rl_agent.model
 
     def save_model(self):
-        if self.model_path:
-            torch.save(self.model.state_dict(), self.model_path)
-            if DEV_MODE:
-                print(f"Model saved to {self.model_path}")
+        torch.save(GNNRLAgent.shared_model.state_dict(), SELECTED_GRAPH_MODEL)
+        if DEV_MODE:
+            print(f"Model saved to {SELECTED_GRAPH_MODEL}")
 
 
 class GNNRLModel:
