@@ -763,58 +763,56 @@ class CatanUI:
 
 
 
-                current_player_agent = self.game.player_agents[self.game.player_turn_index]
-                agent = current_player_agent.agent
 
-                if hasattr(agent, 'store_experience') and hasattr(agent, 'train'):
-                    if DEV_MODE:
-                        print(f'-------- {agent.__class__.__name__} --------')
-                    if isinstance(agent, GNNRLAgent):
-                        board_state = self.game.board.build_heterodata()
-                    else:
-                        board_state = torch.tensor(self.serialization.board, dtype=torch.float32)
-
-                    # Flatten player_states and convert to tensor
-                    player_state = self.serialization.flatten_nested_list(self.serialization.player_states)
-                    player_state = torch.tensor(player_state, dtype=torch.float32)
-
-                    # Ensure player_state has the correct shape (batch_size, player_state_dim)
-                    player_state = player_state.unsqueeze(0)  # Add batch dimension
-
-                    state = (board_state, player_state)
-                    possible_actions = current_player_agent.player._get_all_possible_actions_normal(self.game.board)
-                    action = agent.get_action(self.game, possible_actions)
-                    reward = self.calculate_reward(current_player_agent.player)
-
-                    # Convert next states to tensors
-                    if isinstance(agent, GNNRLAgent):
-                        next_board_state = self.game.board.build_heterodata()
-                    else:
-                        next_board_state = torch.tensor(self.serialization.board, dtype=torch.float32)
-                    next_player_state = torch.tensor(player_state,
-                                                     dtype=torch.float32)  # Reuse flattened player_state
-                    next_state = (next_board_state, next_player_state)
-
-                    done = self.game.winning_player_index is not None
-
-                    agent.store_experience(state, action, reward, next_state, done)
-
-                    agent.train()
-                    # Save the model
-                    # TODO abstract into agent class
-                    if self.model_path:
-                        torch.save(self.rl_agent.model.state_dict(), self.model_path)
+                for player_agent in self.game.player_agents:
+                    agent = player_agent.agent
+                    if hasattr(agent, 'store_experience') and hasattr(agent, 'train'):
                         if DEV_MODE:
-                            print(f"Model saved to {self.model_path}")
+                            print(f'-------- {agent.__class__.__name__} --------')
+                        if isinstance(agent, GNNRLAgent):
+                            board_state = self.game.board.build_heterodata()
+                        else:
+                            board_state = torch.tensor(self.serialization.board, dtype=torch.float32)
+
+                        # Flatten player_states and convert to tensor
+                        player_state = self.serialization.flatten_nested_list(self.serialization.player_states)
+                        player_state = torch.tensor(player_state, dtype=torch.float32)
+
+                        # Ensure player_state has the correct shape (batch_size, player_state_dim)
+                        player_state = player_state.unsqueeze(0)  # Add batch dimension
+
+                        state = (board_state, player_state)
+                        possible_actions = player_agent.player._get_all_possible_actions_normal(self.game.board)
+                        action = agent.get_action(self.game, possible_actions)
+                        reward = self.calculate_reward(player_agent.player)
+
+                        # Convert next states to tensors
+                        if isinstance(agent, GNNRLAgent):
+                            next_board_state = self.game.board.build_heterodata()
+                        else:
+                            next_board_state = torch.tensor(self.serialization.board, dtype=torch.float32)
+                        next_player_state = torch.tensor(player_state,
+                                                         dtype=torch.float32)  # Reuse flattened player_state
+                        next_state = (next_board_state, next_player_state)
+
+                        done = self.game.winning_player_index is not None
+
+                        agent.store_experience(state, action, reward, next_state, done)
+
+                        agent.train()
 
                 if self.game.winning_player_index is not None:
                     if DEV_MODE:
                         print(f"Player {self.game.winning_player_index + 1} wins!")
-                    # Save the model after each game
-                    if self.rl_agent and self.model_path:
-                        torch.save(self.rl_agent.model.state_dict(), self.model_path)
-                        if DEV_MODE:
-                            print(f"Model saved to {self.model_path}")
+                    # Per agent class with a model associated with it, save the model
+                    # The saved_agent_classes is just to avoid saving the model multiple times if there's multiple of the same agent
+                    saved_agent_classes = set()
+                    for player_agent in self.game.player_agents:
+                        agent = player_agent.agent
+                        if hasattr(agent, 'save_model') and type(agent) not in saved_agent_classes:
+                            agent.save_model()
+                            saved_agent_classes.add(type(agent))
+                            print(f"Model saved")
             elif event.key == pygame.K_x:
                 while self.game.winning_player_index is None:
                     if DEV_MODE:
@@ -828,46 +826,51 @@ class CatanUI:
                     if DEV_MODE:
                         print("Player 2 Board State:", self.serialization.board[1])
 
-                    # Store experience and train RL agent
-                    if self.rl_agent:
-                        # Convert board state to tensor
-                        if isinstance(self.rl_agent, GNNRLModel):
-                            board_state = self.game.board.build_heterodata()
-                        else:
-                            board_state = torch.tensor(self.serialization.board, dtype=torch.float32)
+                    for player_agent in self.game.player_agents:
+                        agent = player_agent.agent
+                        if hasattr(agent, 'store_experience') and hasattr(agent, 'train'):
+                            if DEV_MODE:
+                                print(f'-------- {agent.__class__.__name__} --------')
+                            if isinstance(agent, GNNRLAgent):
+                                board_state = self.game.board.build_heterodata()
+                            else:
+                                board_state = torch.tensor(self.serialization.board, dtype=torch.float32)
 
-                        # Flatten player_states and convert to tensor
-                        player_state = self.serialization.flatten_nested_list(self.serialization.player_states)
-                        player_state = torch.tensor(player_state, dtype=torch.float32)
+                            # Flatten player_states and convert to tensor
+                            player_state = self.serialization.flatten_nested_list(self.serialization.player_states)
+                            player_state = torch.tensor(player_state, dtype=torch.float32)
 
-                        # Ensure player_state has the correct shape (batch_size, player_state_dim)
-                        player_state = player_state.unsqueeze(0)  # Add batch dimension
+                            # Ensure player_state has the correct shape (batch_size, player_state_dim)
+                            player_state = player_state.unsqueeze(0)  # Add batch dimension
 
-                        state = (board_state, player_state)
+                            state = (board_state, player_state)
+                            possible_actions = player_agent.player._get_all_possible_actions_normal(self.game.board)
+                            action = agent.get_action(self.game, possible_actions)
+                            reward = self.calculate_reward(player_agent.player)
 
-                        current_player_agent = self.game.player_agents[self.game.player_turn_index]
-                        possible_actions = current_player_agent.player._get_all_possible_actions_normal(self.game.board)
-                        action = self.rl_agent.get_action(self.game, current_player_agent.player, possible_actions)
-                        reward = self.calculate_reward(current_player_agent.player)
+                            # Convert next states to tensors
+                            if isinstance(agent, GNNRLAgent):
+                                next_board_state = self.game.board.build_heterodata()
+                            else:
+                                next_board_state = torch.tensor(self.serialization.board, dtype=torch.float32)
+                            next_player_state = torch.tensor(player_state,
+                                                             dtype=torch.float32)  # Reuse flattened player_state
+                            next_state = (next_board_state, next_player_state)
 
-                        # Convert next states to tensors
-                        if isinstance(self.rl_agent, GNNRLModel):
-                            next_board_state = self.game.board.build_heterodata()
-                        else:
-                            next_board_state = torch.tensor(self.serialization.board, dtype=torch.float32)
-                        next_player_state = torch.tensor(player_state, dtype=torch.float32)  # Reuse flattened player_state
-                        next_state = (next_board_state, next_player_state)
+                            done = self.game.winning_player_index is not None
 
-                        done = self.game.winning_player_index is not None
+                            agent.store_experience(state, action, reward, next_state, done)
 
-                        self.rl_agent.store_experience(state, action, reward, next_state, done)
-                        self.rl_agent.train()
+                            agent.train()
                 if DEV_MODE:
                     print(f"Player {self.game.winning_player_index + 1} wins!")
-                if self.rl_agent and self.model_path:
-                    torch.save(self.rl_agent.model.state_dict(), self.model_path)
-                    if DEV_MODE:
-                        print(f"Model saved to {self.model_path}")
+                saved_agent_classes = set()
+                for player_agent in self.game.player_agents:
+                    agent = player_agent.agent
+                    if hasattr(agent, 'save_model') and type(agent) not in saved_agent_classes:
+                        agent.save_model()
+                        saved_agent_classes.add(type(agent))
+                        print(f"Model saved")
 
     def calculate_reward(self, player: Player) -> float:
         """Calculate reward based on player's progress, with higher rewards for wheat and ore."""
@@ -926,30 +929,45 @@ class CatanUI:
                     if train == 1:
                         self.serialization.encode_player_states(self.game, self.game.player_agents[1].player)
                         self.serialization.encode_board_recursive(self.game, self.game.board.center_tile, None)
-                        if isinstance(self.rl_agent, GNNRLModel):
-                            board_state = self.game.board.build_heterodata()
-                        else:
-                            board_state = torch.tensor(self.serialization.board, dtype=torch.float32)
-                        player_state = self.serialization.flatten_nested_list(self.serialization.player_states)
-                        player_state = torch.tensor(player_state, dtype=torch.float32)
-                        player_state = player_state.unsqueeze(0)  # Add batch dimension
-                        state = (board_state, player_state)
-                        
-                        current_player_agent = self.game.player_agents[self.game.player_turn_index]
-                        possible_actions = current_player_agent.player._get_all_possible_actions_normal(self.game.board)
-                        action = self.rl_agent.get_action(self.game, current_player_agent.player, possible_actions)
-                        reward = self.calculate_reward(current_player_agent.player)
 
-                        if isinstance(self.rl_agent, GNNRLModel):
-                            next_board_state = self.game.board.build_heterodata()
-                        else:
-                            next_board_state = torch.tensor(self.serialization.board, dtype=torch.float32)
-                        next_player_state = torch.tensor(player_state, dtype=torch.float32)
-                        next_state = (next_board_state, next_player_state)
-                        
-                        done = self.game.winning_player_index is not None
-                        self.rl_agent.store_experience(state, action, reward, next_state, done)
-                        self.rl_agent.train()
+                        trained_classes = set()
+
+                        for player_agent in self.game.player_agents:
+                            agent = player_agent.agent
+                            if hasattr(agent, 'store_experience') and hasattr(agent, 'train'):
+                                if DEV_MODE:
+                                    print(f'-------- {agent.__class__.__name__} --------')
+                                if isinstance(agent, GNNRLAgent):
+                                    board_state = self.game.board.build_heterodata()
+                                else:
+                                    board_state = torch.tensor(self.serialization.board, dtype=torch.float32)
+
+                                # Flatten player_states and convert to tensor
+                                player_state = self.serialization.flatten_nested_list(self.serialization.player_states)
+                                player_state = torch.tensor(player_state, dtype=torch.float32)
+
+                                # Ensure player_state has the correct shape (batch_size, player_state_dim)
+                                player_state = player_state.unsqueeze(0)  # Add batch dimension
+
+                                state = (board_state, player_state)
+                                possible_actions = player_agent.player._get_all_possible_actions_normal(self.game.board)
+                                action = agent.get_action(self.game, possible_actions)
+                                reward = self.calculate_reward(player_agent.player)
+
+                                # Convert next states to tensors
+                                if isinstance(agent, GNNRLAgent):
+                                    next_board_state = self.game.board.build_heterodata()
+                                else:
+                                    next_board_state = torch.tensor(self.serialization.board, dtype=torch.float32)
+                                next_player_state = torch.tensor(player_state,
+                                                                 dtype=torch.float32)  # Reuse flattened player_state
+                                next_state = (next_board_state, next_player_state)
+
+                                done = self.game.winning_player_index is not None
+
+                                agent.store_experience(state, action, reward, next_state, done)
+
+                                agent.train()
 
                 turns = self.game.main_turns_elapsed + 1
                 total_turns += turns
@@ -967,9 +985,14 @@ class CatanUI:
             print(f"Average number of turns: {avg_turns:.2f}")
             for player in sorted(win_counts.keys()):
                 print(f"Player {player + 1}: {win_counts[player]} wins")
-            if train == 1 and self.rl_agent and self.model_path:
-                torch.save(self.rl_agent.model.state_dict(), self.model_path)
-                print(f"Model saved to {self.model_path}")
+            if train == 1:
+                saved_agent_classes = set()
+                for player_agent in self.game.player_agents:
+                    agent = player_agent.agent
+                    if hasattr(agent, 'save_model') and type(agent) not in saved_agent_classes:
+                        agent.save_model()
+                        saved_agent_classes.add(type(agent))
+                        print(f"Model saved")
             return
 
         # Interactive mode
