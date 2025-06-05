@@ -25,7 +25,7 @@ from globals import DEV_MODE
 BOARD_SIZE = 5
 
 class RL_Agent(Agent):
-    def __init__(self, board: Board, player: Player):
+    def __init__(self, board: Board, player: Player, model):
         super().__init__(board, player)
         
         # Define the dimensions for the Q-Network
@@ -34,7 +34,8 @@ class RL_Agent(Agent):
         action_dim = 7  # Number of possible actions
         
         # Initialize the Q-Network
-        self.model = QNetwork(board_channels, player_state_dim, action_dim)
+        # self.model = QNetwork(board_channels, player_state_dim, action_dim)
+        self.model = model
         
         # Initialize the RLAgent
         self.rl_agent = RL_Model(self.model)
@@ -53,7 +54,7 @@ class RL_Agent(Agent):
 
 
 class RL_Model:
-    def __init__(self, model: QNetwork, gamma=0.99, epsilon=0.50, epsilon_decay=0.99995, batch_size=12, learning_rate=0.001):
+    def __init__(self, model: QNetwork, gamma=0.99, epsilon=0.20, epsilon_decay=0.99995, batch_size=12, learning_rate=0.001):
         self.model = model
         self.gamma = gamma
         self.epsilon = epsilon
@@ -232,8 +233,8 @@ class RL_Model:
 
     def get_action(self, game: 'Game', player: 'Player', possible_actions: list[Action]):
         """Select an action using epsilon-greedy strategy"""
-        #if random.random() < self.epsilon:
-        if False:
+        if random.random() < self.epsilon:
+        #if False:
             if DEV_MODE:
                 print("Heuristic action selected on epsilon of: ",  self.epsilon)
             return self.get_action_heuristic(game,possible_actions, player)

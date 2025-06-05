@@ -25,7 +25,7 @@ def parse_arguments():
     return parser.parse_args()
 
 
-def create_game(players) -> Game:
+def create_game(players, model) -> Game:
 
     if len(players) != 4:
         print("Invalid number of given players")
@@ -52,7 +52,7 @@ def create_game(players) -> Game:
         elif player == "H":
             agents.append(HeuristicAgent(board, player_list[i]))
         elif player == "N":
-            agents.append(RL_Agent(board, player_list[i]))
+            agents.append(RL_Agent(board, player_list[i], model))
         else:
             print("Invalid player type")
             exit()
@@ -83,10 +83,6 @@ def load_or_create_model(model_path, board_channels, player_state_dim, action_di
 
 def main():
     args = parse_arguments()
-    game = create_game(args.players)
-    # Hard coded to 4 players since no argument functionality at this moment
-    serialization = BrickRepresentation(5, 4, None, 1)
-    serialization.game = game
 
     # Initialize RL Agent
     board_channels = args.num_players + 1  # Number of players + 1 for board state
@@ -96,6 +92,11 @@ def main():
     # Load or create the model
     model = load_or_create_model(SELECTED_MODEL, board_channels, player_state_dim, action_dim)
     rl_agent = RL_Model(model)
+
+    game = create_game(args.players, model)
+    # Hard coded to 4 players since no argument functionality at this moment
+    serialization = BrickRepresentation(5, 4, None, 1)
+    serialization.game = game
 
     # Pass RL Agent to the UI
     catan_ui = CatanUI(lambda: game, serialization=serialization, rl_agent=rl_agent, model_path=SELECTED_MODEL)
