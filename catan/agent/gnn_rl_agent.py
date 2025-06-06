@@ -41,7 +41,7 @@ def load_or_create_graph_model(model_path, player_state_dim, action_dim):
 class GNNRLAgent(Agent):
     shared_model = load_or_create_graph_model(SELECTED_GRAPH_MODEL, PLAYER_STATE_DIM, ACTION_DIM)
 
-    def __init__(self, board: Board, player: Player, model_path: str | None):
+    def __init__(self, board: Board, player: Player):
         super().__init__(board, player)
 
         # Initialize the RLAgent

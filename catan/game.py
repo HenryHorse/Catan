@@ -4,12 +4,10 @@ from enum import Enum
 from typing import Callable
 import torch
 
-from catan.agent.gnn_rl_agent import GNNRLAgent
 from catan.agent.human import HumanAgent
 from catan.board import Board, RoadVertex, Resource
 from catan.player import Player, Action, EndTurnAction
 from catan.agent import Agent
-from catan.serialization import BrickRepresentation
 
 from globals import DEV_MODE
 
@@ -43,7 +41,7 @@ class Game:
     has_human: bool
 
     ''' keep track of the state of the game'''
-    def __init__(self, board: Board, player_agents: list[PlayerAgent], serialization: BrickRepresentation):
+    def __init__(self, board: Board, player_agents: list[PlayerAgent], serialization):
         self.board = board
         self.board.initialize_tile_info()
         self.board.set_harbors()
@@ -248,14 +246,13 @@ class Game:
                             self.serialization.encode_player_states(self, self.player_agents[1].player)
                             self.serialization.encode_board_recursive(self, self.board.center_tile, None)
 
-                            trained_classes = set()
 
                             for player_agent in self.player_agents:
                                 agent = player_agent.agent
                                 if hasattr(agent, 'store_experience') and hasattr(agent, 'train'):
                                     if DEV_MODE:
                                         print(f'-------- {agent.__class__.__name__} --------')
-                                    if isinstance(agent, GNNRLAgent):
+                                    if type(agent).__name__ == "GNNRLAgent":
                                         board_state = self.board.build_heterodata()
                                     else:
                                         board_state = torch.tensor(self.serialization.board, dtype=torch.float32)
@@ -268,12 +265,10 @@ class Game:
                                     player_state = player_state.unsqueeze(0)  # Add batch dimension
 
                                     state = (board_state, player_state)
-                                    possible_actions = player_agent.player._get_all_possible_actions_normal(self.game.board)
-                                    action = agent.get_action(self, possible_actions)
                                     reward = self.calculate_reward(player_agent.player)
 
                                     # Convert next states to tensors
-                                    if isinstance(agent, GNNRLAgent):
+                                    if type(agent).__name__ == "GNNRLAgent":
                                         next_board_state = self.board.build_heterodata()
                                     else:
                                         next_board_state = torch.tensor(self.serialization.board, dtype=torch.float32)
