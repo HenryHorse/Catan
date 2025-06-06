@@ -81,9 +81,10 @@ def main():
     # Hard coded to 4 players since no argument functionality at this moment
     serialization = BrickRepresentation(5, 4, None, 1)
     serialization.game = game
+    game.serialization = serialization
 
     # Pass RL Agent to the UI
-    catan_ui = CatanUI(lambda: game, serialization=serialization)
+    catan_ui = CatanUI(lambda: game)
     catan_ui.open_and_loop(doSimulate=args.sim, train=args.train)
 
 

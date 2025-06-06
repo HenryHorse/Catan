@@ -354,14 +354,14 @@ class Player:
         return actions
     
     # returns whether the player has ended their turn
-    def perform_action(self, action: Action, board: Board, game: 'Game') -> bool:
+    def perform_action(self, action: Action, board: Board, game: 'Game') -> Action:
         if DEV_MODE:
             print(f'Player {self.index + 1} performs action {action}')
         if isinstance(action, EndTurnAction):
             for card in self.unplayed_dev_cards:
                 if card.card_type != DevelopmentCard.VICTORY_POINT and card.on_cooldown:
                     card.on_cooldown = False
-            return True
+            return action
         elif isinstance(action, BuildSettlementAction):
             self.build_settlement(action.road_vertex, action.pay_for)
             self.setup_last_settlement = action.road_vertex
@@ -393,4 +393,4 @@ class Player:
                 self.give_resource(resource)
         else:
             raise CatanException('Invalid action')
-        return False
+        return action

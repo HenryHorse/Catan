@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
-from catan.board import Tile, Road, Resource, DevelopmentCard, RoadVertex, Harbor
-from catan.game import Game, GamePhase, PlayerAgent
+from catan.board import Tile, Road, Resource, DevelopmentCard, RoadVertex
+from catan.game import Game, GamePhase
 from catan.player import Player, EndTurnAction, BuildSettlementAction, BuildCityAction, BuildRoadAction, BuyDevelopmentCardAction, UseDevelopmentCardAction, TradeAction
 
 from globals import DEV_MODE
@@ -168,11 +168,11 @@ class BrickRepresentation:
             return
         visited.add(brick_coords)
 
-        self.serialize_tile(game, tile)
+        self.serialize_tile(tile)
         for neighbor in tile.adjacent_tiles:
             self.encode_board_recursive(game, neighbor, visited)
 
-    def serialize_tile(self, game: Game, tile: Tile):
+    def serialize_tile(self, tile: Tile):
         x, y = self.get_tile_brick_coords(tile)
         if tile.resource is not None:
             self.board[-1][y][x - 1] = tile.resource.value + 1

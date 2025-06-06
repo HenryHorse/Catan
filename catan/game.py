@@ -2,11 +2,14 @@ import random
 from dataclasses import dataclass
 from enum import Enum
 from typing import Callable
+import torch
 
+from catan.agent.gnn_rl_agent import GNNRLAgent
 from catan.agent.human import HumanAgent
-from catan.board import Board, RoadVertex
-from catan.player import Player
+from catan.board import Board, RoadVertex, Resource
+from catan.player import Player, Action, EndTurnAction
 from catan.agent import Agent
+from catan.serialization import BrickRepresentation
 
 from globals import DEV_MODE
 
@@ -40,7 +43,7 @@ class Game:
     has_human: bool
 
     ''' keep track of the state of the game'''
-    def __init__(self, board: Board, player_agents: list[PlayerAgent]):
+    def __init__(self, board: Board, player_agents: list[PlayerAgent], serialization: BrickRepresentation):
         self.board = board
         self.board.initialize_tile_info()
         self.board.set_harbors()
@@ -57,6 +60,7 @@ class Game:
         self.has_human = any(isinstance(pa.agent, HumanAgent) for pa in player_agents)
         self.setup_stage = 0
         self.setup_turn_counter = 0
+        self.serialization = serialization
 
     def perform_dice_roll(self):
         roll = random.randint(1, 6) + random.randint(1, 6)
@@ -172,8 +176,8 @@ class Game:
                 if DEV_MODE:
                     print(f"Player {player.index + 1} receives 1 {tile.resource} from settlement at {settlement}.")
 
-    # returns whether the player has ended their turn
-    def get_and_perform_player_action(self, player_index: int = None):
+
+    def get_and_perform_player_action(self, player_index: int = None) -> Action | None:
         # Use the provided index if given, else use the stored player_turn_index.
         if player_index is None:
             player_index = self.player_turn_index
@@ -181,7 +185,7 @@ class Game:
         player, agent = self.player_agents[player_index].as_tuple()
         all_possible_actions = player.get_all_possible_actions(self.board, self.game_phase == GamePhase.SETUP)
         if not all_possible_actions:
-            return
+            return None
         elif len(all_possible_actions) == 1:
             return player.perform_action(all_possible_actions[0], self.board, self)
         else:
@@ -190,8 +194,30 @@ class Game:
     
     def advance_player_turn(self):
         self.player_turn_index = (self.player_turn_index + 1) % len(self.player_agents)
-    
-    def do_full_turn(self):
+
+
+    def calculate_reward(self, player: Player) -> float:
+        """Calculate reward based on player's progress, with higher rewards for wheat and ore."""
+        reward = 0
+
+        # Reward for victory points
+        reward += player.get_victory_points() * 5  # Reward for victory points
+
+        # Reward for resources, with higher weights for wheat and ore
+        resource_weights = {
+            Resource.GRAIN: .3,
+            Resource.ORE: .3,
+            Resource.BRICK: .1,
+            Resource.WOOD: .1,
+            Resource.SHEEP: .1,
+        }
+        # Calculate weighted sum of resources
+        for resource, amount in player.resources.items():
+            reward += amount * resource_weights.get(resource, 1)  # Use weight if defined, otherwise default to 1
+
+        return reward
+
+    def do_full_turn(self, train):
         if self.winning_player_index is not None:
             return
 
@@ -216,7 +242,50 @@ class Game:
                     else:
                         if DEV_MODE:
                             print(f"Bot {current_player_index + 1} auto-turn: placing settlement and road.")
-                        self.get_and_perform_player_action(current_player_index)  # settlement
+                        action = self.get_and_perform_player_action(current_player_index)  # settlement
+
+                        if train == 1:
+                            self.serialization.encode_player_states(self, self.player_agents[1].player)
+                            self.serialization.encode_board_recursive(self, self.board.center_tile, None)
+
+                            trained_classes = set()
+
+                            for player_agent in self.player_agents:
+                                agent = player_agent.agent
+                                if hasattr(agent, 'store_experience') and hasattr(agent, 'train'):
+                                    if DEV_MODE:
+                                        print(f'-------- {agent.__class__.__name__} --------')
+                                    if isinstance(agent, GNNRLAgent):
+                                        board_state = self.board.build_heterodata()
+                                    else:
+                                        board_state = torch.tensor(self.serialization.board, dtype=torch.float32)
+
+                                    # Flatten player_states and convert to tensor
+                                    player_state = self.serialization.flatten_nested_list(self.serialization.player_states)
+                                    player_state = torch.tensor(player_state, dtype=torch.float32)
+
+                                    # Ensure player_state has the correct shape (batch_size, player_state_dim)
+                                    player_state = player_state.unsqueeze(0)  # Add batch dimension
+
+                                    state = (board_state, player_state)
+                                    possible_actions = player_agent.player._get_all_possible_actions_normal(self.game.board)
+                                    action = agent.get_action(self, possible_actions)
+                                    reward = self.calculate_reward(player_agent.player)
+
+                                    # Convert next states to tensors
+                                    if isinstance(agent, GNNRLAgent):
+                                        next_board_state = self.board.build_heterodata()
+                                    else:
+                                        next_board_state = torch.tensor(self.serialization.board, dtype=torch.float32)
+                                    next_player_state = torch.tensor(player_state,
+                                                                     dtype=torch.float32)  # Reuse flattened player_state
+                                    next_state = (next_board_state, next_player_state)
+
+                                    done = self.winning_player_index is not None
+
+                                    agent.store_experience(state, action, reward, next_state, done)
+
+                                    agent.train()
 
                         player = self.player_agents[current_player_index].player
                         if len(player.settlements) == 2:
@@ -275,7 +344,7 @@ class Game:
         else:
             # MAIN phase: roll dice, process actions until turn ends, etc.
             self.perform_dice_roll()
-            while not self.get_and_perform_player_action():
+            while not isinstance(self.get_and_perform_player_action(), EndTurnAction):
                 pass
             self.main_turns_elapsed += 1
             self.recompute_longest_road()
