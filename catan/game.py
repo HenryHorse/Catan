@@ -182,6 +182,9 @@ class Game:
         # tuple unpacking moment
         player, agent = self.player_agents[player_index].as_tuple()
         all_possible_actions = player.get_all_possible_actions(self.board, self.game_phase == GamePhase.SETUP)
+
+        previous_rewards = [self.calculate_reward(pa.player) for pa in self.player_agents]
+
         if not all_possible_actions:
             action = None
         elif len(all_possible_actions) == 1:
@@ -195,7 +198,7 @@ class Game:
             self.serialization.encode_player_states(self, self.player_agents[1].player)
             self.serialization.encode_board_recursive(self, self.board.center_tile, None)
 
-            for player_agent in self.player_agents:
+            for i, player_agent in enumerate(self.player_agents):
                 agent = player_agent.agent
                 if hasattr(agent, 'store_experience') and hasattr(agent, 'train'):
                     if DEV_MODE:
@@ -214,6 +217,7 @@ class Game:
 
                     state = (board_state, player_state)
                     reward = self.calculate_reward(player_agent.player)
+                    reward_delta = reward - previous_rewards[i]
 
                     # Convert next states to tensors
                     if type(agent).__name__ == "GNNRLAgent":
@@ -226,7 +230,7 @@ class Game:
 
                     done = self.winning_player_index is not None
 
-                    agent.store_experience(state, action, reward, next_state, done)
+                    agent.store_experience(state, action, reward_delta, next_state, done)
 
                     agent.train()
         return action
@@ -240,7 +244,11 @@ class Game:
         reward = 0
 
         # Reward for victory points
-        reward += player.get_victory_points() * 5  # Reward for victory points
+        victory_points = player.get_victory_points()
+        reward += victory_points * 5  # Reward for victory points
+        if victory_points >= 10:
+            reward += 100
+
 
         # Reward for resources, with higher weights for wheat and ore
         resource_weights = {
