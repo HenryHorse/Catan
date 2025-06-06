@@ -836,8 +836,6 @@ class CatanUI:
                 while self.game.winning_player_index is None:
                     self.game.do_full_turn(train)
 
-
-
                 turns = self.game.main_turns_elapsed + 1
                 total_turns += turns
                 winner = self.game.winning_player_index
