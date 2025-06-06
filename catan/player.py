@@ -3,13 +3,15 @@ from dataclasses import dataclass
 from typing import Union, TYPE_CHECKING
 import random
 
-from catan.board import Board, DevelopmentCard, Resource, RoadVertex, Road, Harbor, DevCard
+from catan.board import Board, DevelopmentCardType, Resource, RoadVertex, Road, Harbor, DevelopmentCard
 from catan.error import CatanException
 from catan.constants import *
 if TYPE_CHECKING:
-    from catan.game import Game, GamePhase
+    from catan.game import Game
 
-from globals import DEV_MODE
+from catan.util import print_debug
+
+from globals import ACTION_DIM
 
 
 @dataclass
@@ -37,7 +39,7 @@ class BuyDevelopmentCardAction:
 
 @dataclass
 class UseDevelopmentCardAction:
-    card: DevCard
+    card: DevelopmentCard
 
 @dataclass
 class TradeAction:
@@ -63,8 +65,8 @@ class Player:
     color: tuple[int, int, int]
 
     resources: dict[Resource, int]
-    unplayed_dev_cards: list[DevCard]
-    played_dev_cards: list[DevCard]
+    unplayed_dev_cards: list[DevelopmentCard]
+    played_dev_cards: list[DevelopmentCard]
 
     # for the road building development card
     free_roads_remaining: int
@@ -112,8 +114,8 @@ class Player:
     
     def get_victory_points(self) -> int:
         return (len(self.settlements) + len(self.cities) +
-            sum(1 for card in self.played_dev_cards if card.card_type == DevelopmentCard.VICTORY_POINT) +
-            sum(1 for card in self.unplayed_dev_cards if card.card_type == DevelopmentCard.VICTORY_POINT) +
+            sum(1 for card in self.played_dev_cards if card.card_type == DevelopmentCardType.VICTORY_POINT) +
+            sum(1 for card in self.unplayed_dev_cards if card.card_type == DevelopmentCardType.VICTORY_POINT) +
             (2 if self.has_longest_road else 0) +
             (2 if self.has_largest_army else 0))
     
@@ -339,7 +341,7 @@ class Player:
             actions.append(BuyDevelopmentCardAction())
         unique_cards = {}
         for card in self.unplayed_dev_cards:
-            if card.card_type != DevelopmentCard.VICTORY_POINT and not card.on_cooldown:
+            if card.card_type != DevelopmentCardType.VICTORY_POINT and not card.on_cooldown:
                 if card.card_type not in unique_cards:
                     unique_cards[card.card_type] = card
         for unique_card in unique_cards.values():
@@ -353,13 +355,30 @@ class Player:
                 actions.extend(TradeAction.simple_trade_options(resource, 4))
         return actions
     
+    def get_all_actions(self, board: Board) -> list[Action]:
+        actions: list[Action] = [EndTurnAction()]
+        actions.extend(BuildSettlementAction(road_vertex) for road_vertex in board.road_vertices.values())
+        actions.extend(BuildCityAction(road_vertex) for road_vertex in board.road_vertices.values())
+        actions.extend(BuildRoadAction(road) for road in board.roads)
+        actions.append(BuyDevelopmentCardAction())
+        development_cards = [DevelopmentCard(card_type, False) for card_type in DevelopmentCardType if card_type != DevelopmentCardType.VICTORY_POINT]
+        actions.extend(UseDevelopmentCardAction(card) for card in development_cards)
+        for resource in Resource:
+            actions.extend(TradeAction.simple_trade_options(resource, 4))
+            actions.extend(TradeAction.simple_trade_options(resource, 3))
+            actions.extend(TradeAction.simple_trade_options(resource, 2))
+        
+        if len(actions) != ACTION_DIM:
+            print_debug(f'Warning: Expected {ACTION_DIM} actions, got {len(actions)}')
+
+        return actions
+    
     # returns whether the player has ended their turn
     def perform_action(self, action: Action, board: Board, game: 'Game') -> Action:
-        if DEV_MODE:
-            print(f'Player {self.index + 1} performs action {action}')
+        print_debug(f'Player {self.index + 1} performs action {action}')
         if isinstance(action, EndTurnAction):
             for card in self.unplayed_dev_cards:
-                if card.card_type != DevelopmentCard.VICTORY_POINT and card.on_cooldown:
+                if card.card_type != DevelopmentCardType.VICTORY_POINT and card.on_cooldown:
                     card.on_cooldown = False
             return action
         elif isinstance(action, BuildSettlementAction):
@@ -375,15 +394,15 @@ class Player:
         elif isinstance(action, UseDevelopmentCardAction):
             self.unplayed_dev_cards.remove(action.card)
             self.played_dev_cards.append(action.card)
-            if action.card.card_type == DevelopmentCard.KNIGHT:
+            if action.card.card_type == DevelopmentCardType.KNIGHT:
                 game.move_robber_and_steal(self.index)
                 self.army_size += 1
-            elif action.card.card_type == DevelopmentCard.ROAD_BUILDING:
+            elif action.card.card_type == DevelopmentCardType.ROAD_BUILDING:
                 self.free_roads_remaining += min(2, self.available_roads)
-            elif action.card.card_type == DevelopmentCard.YEAR_OF_PLENTY:
+            elif action.card.card_type == DevelopmentCardType.YEAR_OF_PLENTY:
                 for _ in range(2):
                     game.select_and_give_resource(self.index)
-            elif action.card.card_type == DevelopmentCard.MONOPOLY:
+            elif action.card.card_type == DevelopmentCardType.MONOPOLY:
                 game.select_and_steal_all_resources(self.index)
         elif isinstance(action, TradeAction):
             if not self.can_afford(action.giving):

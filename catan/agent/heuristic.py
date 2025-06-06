@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING
 import random
 
-from catan.board import Board, Resource, RoadVertex, Road, DevCard, DevelopmentCard
+from catan.board import Board, Resource, RoadVertex, Road, DevelopmentCard, DevelopmentCardType
 from catan.player import Player, Action, BuildSettlementAction, BuildCityAction, BuildRoadAction, \
     BuyDevelopmentCardAction, TradeAction, UseDevelopmentCardAction, EndTurnAction
 from catan.util import CubeCoordinates
@@ -110,7 +110,7 @@ class HeuristicAgent(Agent):
                     score -= 10 # Punishment for giving up a resource player only has 1 of
         return score
 
-    def evaluate_dev_card(self, dev_card: DevCard, game: 'Game') -> int:
+    def evaluate_dev_card(self, dev_card: DevelopmentCard, game: 'Game') -> int:
         score = 0
         match dev_card.card_type:
             case dev_card.card_type.KNIGHT:

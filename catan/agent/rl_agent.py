@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING
 import random
 
-from catan.util import CubeCoordinates
+from catan.util import CubeCoordinates, print_debug
 from catan.agent import Agent
 if TYPE_CHECKING:
     from catan.game import Game
@@ -15,12 +15,12 @@ from catan.serialization import BrickRepresentation
 import os
 
 
-from catan.board import Board, Resource, RoadVertex, Road, DevelopmentCard, DevCard
+from catan.board import Board, Resource, RoadVertex, Road, DevelopmentCardType, DevelopmentCard
 from catan.player import Player, Action, BuildSettlementAction, BuildCityAction, BuildRoadAction, \
     BuyDevelopmentCardAction, TradeAction, UseDevelopmentCardAction, EndTurnAction
 from catan.game import GamePhase
 
-from globals import DEV_MODE, SELECTED_GRID_MODEL, BOARD_CHANNELS, PLAYER_STATE_DIM, ACTION_DIM
+from globals import  SELECTED_GRID_MODEL, BOARD_CHANNELS, PLAYER_STATE_DIM, ACTION_DIM
 
 BOARD_SIZE = 5
 
@@ -69,8 +69,7 @@ class RL_Agent(Agent):
 
     def save_model(self):
         torch.save(RL_Agent.shared_model.state_dict(), SELECTED_GRID_MODEL)
-        if DEV_MODE:
-            print(f"Model saved to {SELECTED_GRID_MODEL}")
+        print_debug(f"Model saved to {SELECTED_GRID_MODEL}")
 
 
 class RL_Model:
@@ -177,7 +176,7 @@ class RL_Model:
                     score -= 10 # Punishment for giving up a resource player only has 1 of
         return score
 
-    def evaluate_dev_card(self, dev_card: DevCard, game: 'Game') -> int:
+    def evaluate_dev_card(self, dev_card: DevelopmentCard, game: 'Game') -> int:
         score = 0
         match dev_card.card_type:
             case dev_card.card_type.KNIGHT:
@@ -251,41 +250,40 @@ class RL_Model:
         
         return board_state, player_state
 
-    def get_action(self, game: 'Game', player: 'Player', possible_actions: list[Action]):
+    def get_action(self, game: 'Game', player: 'Player', possible_actions: list[Action]) -> Action:
         """Select an action using epsilon-greedy strategy"""
         if random.random() < self.epsilon:
-            if DEV_MODE:
-                print("Heuristic action selected on epsilon of: ",  self.epsilon)
-            return self.get_action_heuristic(game,possible_actions, player)
+            print_debug("Heuristic action selected on epsilon of: ", self.epsilon)
+            return self.get_action_heuristic(game, possible_actions, player)
         else:
+            print_debug("Model action selected on epsilon of: ", self.epsilon)
             board_state, player_state = self.get_state(game, player)
             board_state = board_state.unsqueeze(0)  # Add batch dimension
             player_state = player_state.unsqueeze(0)
             
             # Get Q-values from the model
             q_values = self.model.forward(board_state, player_state).detach().numpy().flatten()
-            
-            # Ensure the number of Q-values matches the number of possible actions
-            if len(q_values) < len(possible_actions):
-                if DEV_MODE:
-                    print("Warning: Model output has fewer Q-values than possible actions")
-                return random.choice(possible_actions)
-            
-            # Filter Q-values to only valid actions
-            valid_q_values = q_values[:len(possible_actions)]
-            
+
+            # Get the full action space
+            action_space = player.get_all_actions(game.board)
+
+            if q_values.shape[0] != len(action_space):
+                print_debug(f"Warning: Q-values shape {q_values.shape} does not match action space length {len(action_space)}")
+
+            # Identify which actions are valid based on the current game state
+            possible_actions_ordered = []
+            valid_q_values = []
+            for i, action in enumerate(action_space):
+                if action in possible_actions:
+                    possible_actions_ordered.append(action)
+                    valid_q_values.append(q_values[i])
+
             # Select the action with the highest Q-value among valid actions
+            if len(valid_q_values) == 0:
+                print_debug("Warning: No valid actions found based on Q-values. Defaulting to EndTurnAction.")
+                return EndTurnAction()
             action_idx = np.argmax(valid_q_values)
-            return possible_actions[action_idx]  # Exploit (best action based on Q-values)
-            # action_idx = np.argmax(q_values)
-            # if action_idx< len(possible_actions)-1:
-            #     return possible_actions[action_idx]  # Exploit (best action based on Q-values)
-            # else:
-            #     if DEV_MODE:
-            #       print("Invalid action index++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
-            #       print("action: " +str(action_idx))
-            #       print("Possable actions: " + str(possible_actions))
-            #     return random.choice(possible_actions)  # Explore (random action)
+            return possible_actions_ordered[action_idx]  # Exploit (best action based on Q-values)
 
     def store_experience(self, state, action, reward, next_state, done):
         """Store the agent's experience in the replay buffer."""
@@ -310,8 +308,7 @@ class RL_Model:
     def train(self):
         """Train the agent based on experiences collected during the game."""
         if len(self.replay_buffer) < self.batch_size:
-            if DEV_MODE:
-                print("replay buff too small"+ " Buffer size: "+str(len(self.replay_buffer))+ " Batch size:  "+ str(self.batch_size))
+            print_debug("replay buff too small"+ " Buffer size: "+str(len(self.replay_buffer))+ " Batch size:  "+ str(self.batch_size))
             return  # Not enough experiences to train
 
         # Sample a random batch from the replay buffer
@@ -345,8 +342,7 @@ class RL_Model:
 
         # Update epsilon (decay exploration rate)
         self.epsilon = max(self.epsilon * self.epsilon_decay, 0.01)
-        if DEV_MODE:
-            print("updated epsilon:" + str(self.epsilon))
+        print_debug("updated epsilon:" + str(self.epsilon))
 
 
 class ActionMapper:

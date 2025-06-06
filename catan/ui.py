@@ -8,7 +8,7 @@ import torch
 from catan.agent.gnn_rl_agent import GNNRLModel, GNNRLAgent
 from catan.agent.random import RandomAgent
 from catan.agent.human import HumanAgent
-from catan.board import DevelopmentCard, Harbor, RoadVertex, Board, DevCard
+from catan.board import DevelopmentCardType, Harbor, RoadVertex, Board, DevelopmentCard
 from catan.game import Game
 from catan.game import GamePhase
 from catan.util import Point
@@ -253,11 +253,11 @@ class CatanUI:
             dev_y += dev_header.get_height() + 5
 
             ordered_dev_cards = [
-                DevelopmentCard.VICTORY_POINT,
-                DevelopmentCard.KNIGHT,
-                DevelopmentCard.ROAD_BUILDING,
-                DevelopmentCard.YEAR_OF_PLENTY,
-                DevelopmentCard.MONOPOLY,
+                DevelopmentCardType.VICTORY_POINT,
+                DevelopmentCardType.KNIGHT,
+                DevelopmentCardType.ROAD_BUILDING,
+                DevelopmentCardType.YEAR_OF_PLENTY,
+                DevelopmentCardType.MONOPOLY,
             ]
 
             if isinstance(pa.agent, HumanAgent):
@@ -275,7 +275,7 @@ class CatanUI:
                     card_surface = self.stats_font.render(card_text, True, BLACK)
                     text_y = dev_y
 
-                    if card == DevelopmentCard.VICTORY_POINT:
+                    if card == DevelopmentCardType.VICTORY_POINT:
                         self.screen.blit(card_surface, (right_col_x, text_y))
                         dev_y += card_surface.get_height() + 5
                     else:
@@ -648,35 +648,35 @@ class CatanUI:
                                 if active:
                                     try:
                                         # Instead of immediately playing the card, set pending state.
-                                        if card == DevelopmentCard.KNIGHT:
+                                        if card == DevelopmentCardType.KNIGHT:
                                             self.pending_dev_action = "KNIGHT"
                                             if DEV_MODE:
                                                 print("Knight card activated. Click a tile to move the robber.")
-                                            dev_card = next(c for c in current_player.player.unplayed_dev_cards if c.card_type == DevelopmentCard.KNIGHT)
+                                            dev_card = next(c for c in current_player.player.unplayed_dev_cards if c.card_type == DevelopmentCardType.KNIGHT)
                                             current_player.player.unplayed_dev_cards.remove(dev_card)
                                             current_player.player.played_dev_cards.append(dev_card)
-                                        elif card == DevelopmentCard.ROAD_BUILDING:
+                                        elif card == DevelopmentCardType.ROAD_BUILDING:
                                             self.pending_dev_action = "ROAD_BUILDER"
                                             self.pending_dev_data = {"roads_built": 0}
                                             if DEV_MODE:
                                                 print("Road Builder activated. Build 2 free roads by clicking valid locations.")
-                                            dev_card = next(c for c in current_player.player.unplayed_dev_cards if c.card_type == DevelopmentCard.ROAD_BUILDING)
+                                            dev_card = next(c for c in current_player.player.unplayed_dev_cards if c.card_type == DevelopmentCardType.ROAD_BUILDING)
                                             current_player.player.unplayed_dev_cards.remove(dev_card)
                                             current_player.player.played_dev_cards.append(dev_card)
                                             
-                                        elif card == DevelopmentCard.MONOPOLY:
+                                        elif card == DevelopmentCardType.MONOPOLY:
                                             self.pending_dev_action = "MONOPOLY"
                                             if DEV_MODE:
                                                 print("Monopoly activated. Click on a resource square (modal) to steal all of that resource.")
-                                            dev_card = next(c for c in current_player.player.unplayed_dev_cards if c.card_type == DevelopmentCard.MONOPOLY)
+                                            dev_card = next(c for c in current_player.player.unplayed_dev_cards if c.card_type == DevelopmentCardType.MONOPOLY)
                                             current_player.player.unplayed_dev_cards.remove(dev_card)
                                             current_player.player.played_dev_cards.append(dev_card)
-                                        elif card == DevelopmentCard.YEAR_OF_PLENTY:
+                                        elif card == DevelopmentCardType.YEAR_OF_PLENTY:
                                             self.pending_dev_action = "YEAR_OF_PLENTY"
                                             self.pending_dev_data = {"clicks": 0}
                                             if DEV_MODE:
                                                 print("Year of Plenty activated. Click twice on resource squares to gain 2 resources.")
-                                            dev_card = next(c for c in current_player.player.unplayed_dev_cards if c.card_type == DevelopmentCard.YEAR_OF_PLENTY)
+                                            dev_card = next(c for c in current_player.player.unplayed_dev_cards if c.card_type == DevelopmentCardType.YEAR_OF_PLENTY)
                                             current_player.player.unplayed_dev_cards.remove(dev_card)
                                             current_player.player.played_dev_cards.append(dev_card)
                                     except Exception as e:

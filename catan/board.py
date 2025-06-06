@@ -51,7 +51,7 @@ HARBOR_LOCATIONS = [
 ]
 
 
-class DevelopmentCard(enum.Enum):
+class DevelopmentCardType(enum.Enum):
     KNIGHT = 0
     ROAD_BUILDING = 1
     YEAR_OF_PLENTY = 2
@@ -62,28 +62,28 @@ class DevelopmentCard(enum.Enum):
         return self.name.replace('_', ' ').title()
 
 @dataclass
-class DevCard:
-    card_type: DevelopmentCard
+class DevelopmentCard:
+    card_type: DevelopmentCardType
     on_cooldown: bool = None
 
     def __post_init__(self):
         if self.on_cooldown is None:
-            self.on_cooldown = False if self.card_type == DevelopmentCard.VICTORY_POINT else True
+            self.on_cooldown = False if self.card_type == DevelopmentCardType.VICTORY_POINT else True
 
 class DevelopmentCardDeck:
-    cards: list[DevCard]
+    cards: list[DevelopmentCard]
 
     def __init__(self):
         self.cards = (
-            [DevCard(DevelopmentCard.KNIGHT) for _ in range(14)] +
-            [DevCard(DevelopmentCard.ROAD_BUILDING) for _ in range(2)] +
-            [DevCard(DevelopmentCard.YEAR_OF_PLENTY) for _ in range(2)] +
-            [DevCard(DevelopmentCard.MONOPOLY) for _ in range(2)] +
-            [DevCard(DevelopmentCard.VICTORY_POINT) for _ in range(5)]
+            [DevelopmentCard(DevelopmentCardType.KNIGHT) for _ in range(14)] +
+            [DevelopmentCard(DevelopmentCardType.ROAD_BUILDING) for _ in range(2)] +
+            [DevelopmentCard(DevelopmentCardType.YEAR_OF_PLENTY) for _ in range(2)] +
+            [DevelopmentCard(DevelopmentCardType.MONOPOLY) for _ in range(2)] +
+            [DevelopmentCard(DevelopmentCardType.VICTORY_POINT) for _ in range(5)]
         )
         random.shuffle(self.cards)
 
-    def draw(self) -> DevelopmentCard:
+    def draw(self) -> DevelopmentCardType:
         return self.cards.pop()
     
     def remaining_cards(self) -> int:

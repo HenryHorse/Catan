@@ -2,7 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import math
+import globals
 
+
+def print_debug(*args, **kwargs):
+    """Print debug messages if DEV_MODE is enabled."""
+    if globals.DEV_MODE:
+        print(*args, **kwargs)
 
 @dataclass(frozen=True)
 class Point:

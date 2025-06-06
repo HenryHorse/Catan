@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from catan.board import Tile, Road, Resource, DevelopmentCard, RoadVertex
+from catan.board import Tile, Road, Resource, DevelopmentCardType, RoadVertex
 from catan.game import Game, GamePhase
 from catan.player import Player, EndTurnAction, BuildSettlementAction, BuildCityAction, BuildRoadAction, BuyDevelopmentCardAction, UseDevelopmentCardAction, TradeAction
 
@@ -106,20 +106,20 @@ class BrickRepresentation:
             elif isinstance(act, UseDevelopmentCardAction):
                 dev_card_type = act.card
                 match dev_card_type:
-                    case DevelopmentCard.KNIGHT:
+                    case DevelopmentCardType.KNIGHT:
                         for tile in game.board.tiles.values():
                             if tile.has_robber:
                                 continue
                             coords = self.get_tile_brick_coords(tile.cube_coords)
                             self.player_states[8][coords[1]][coords[0]][3] = 1
                         break
-                    case DevelopmentCard.ROAD_BUILDING:
+                    case DevelopmentCardType.ROAD_BUILDING:
                         self.player_states[2] = 1
                         break
-                    case DevelopmentCard.YEAR_OF_PLENTY:
+                    case DevelopmentCardType.YEAR_OF_PLENTY:
                         self.player_states[3] = 1
                         break
-                    case DevelopmentCard.MONOPOLY:
+                    case DevelopmentCardType.MONOPOLY:
                         self.player_states[4] = 1
                         break
             elif isinstance(act, TradeAction):

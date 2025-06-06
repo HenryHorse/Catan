@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch import Tensor
 import numpy as np
 import random
 
@@ -13,7 +14,14 @@ from globals import DEV_MODE
 
 
 class QNetwork(nn.Module):
-    def __init__(self, board_channels, player_state_dim, action_dim, hidden_dim=128):
+    conv1: nn.Conv2d
+    conv2: nn.Conv2d
+    conv3: nn.Conv2d
+    fc1: nn.Linear
+    fc2: nn.Linear
+    fc_action: nn.Linear
+
+    def __init__(self, board_channels: int, player_state_dim: int, action_dim: int, hidden_dim=128):
         super(QNetwork, self).__init__()
         
         # Convolutional layers for board state
@@ -28,7 +36,7 @@ class QNetwork(nn.Module):
         # Final layer to output Q-values for each action
         self.fc_action = nn.Linear(29568 + hidden_dim, action_dim)
     
-    def forward(self, x_board, x_player):
+    def forward(self, x_board: Tensor, x_player: Tensor) -> Tensor:
         # Debugging: Print shapes
         if DEV_MODE:
             print(f"x_board shape: {x_board.shape}")
