@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING
+from typing import TypeVar, TYPE_CHECKING
 import random
 
 from catan.util import CubeCoordinates, print_debug
@@ -11,16 +11,16 @@ import torch.optim as optim
 import numpy as np
 from collections import deque
 from catan.QNN import QNetwork
-from catan.serialization import BrickRepresentation
+from catan.serialization import BrickRepresentation, NeutralAction, neutral_action_to_action, \
+    action_to_neutral_action, ActionSpace
 import os
-
 
 from catan.board import Board, Resource, RoadVertex, Road, DevelopmentCardType, DevelopmentCard
 from catan.player import Player, Action, BuildSettlementAction, BuildCityAction, BuildRoadAction, \
     BuyDevelopmentCardAction, TradeAction, UseDevelopmentCardAction, EndTurnAction
 from catan.game import GamePhase
 
-from globals import  SELECTED_GRID_MODEL, BOARD_CHANNELS, PLAYER_STATE_DIM, ACTION_DIM
+from globals import SELECTED_GRID_MODEL, BOARD_CHANNELS, PLAYER_STATE_DIM, ACTION_DIM
 
 BOARD_SIZE = 5
 
@@ -44,7 +44,7 @@ class RL_Agent(Agent):
         super().__init__(board, player)
 
         # Initialize the RLAgent
-        self.rl_agent = RL_Model(RL_Agent.shared_model)
+        self.rl_agent = RL_Model(RL_Agent.shared_model, board)
 
     def get_action(self, game: 'Game', possible_actions: list[Action]) -> Action:
         return self.rl_agent.get_action(game, self.player, possible_actions)
@@ -73,7 +73,7 @@ class RL_Agent(Agent):
 
 
 class RL_Model:
-    def __init__(self, model: QNetwork, gamma=0.99, epsilon=1.0, epsilon_decay=0.99995, batch_size=12, learning_rate=0.001):
+    def __init__(self, model: QNetwork, board: Board, gamma=0.99, epsilon=1.0, epsilon_decay=0.99995, batch_size=12, learning_rate=0.001):
         self.model = model
         self.gamma = gamma
         self.epsilon = epsilon
@@ -81,7 +81,8 @@ class RL_Model:
         self.batch_size = batch_size
         self.optimizer = optim.Adam(model.parameters(), lr=learning_rate)
         self.replay_buffer = deque(maxlen=10000)
-        self.action_mapper = ActionMapper()
+        self.action_space = ActionSpace(board)
+        self.action_space.debug_actions()
 
     def get_action_heuristic(self, game: 'Game', possible_actions: list[Action], player: 'Player') -> Action:
             # The logic is straightforward: prioritize certain types of actions first, try others next. If it can't do anything, just end the turn
@@ -261,29 +262,25 @@ class RL_Model:
             board_state = board_state.unsqueeze(0)  # Add batch dimension
             player_state = player_state.unsqueeze(0)
             
+            # Neutralize actions for action space compatibility
+            possible_actions_neutral = [action_to_neutral_action(action) for action in possible_actions]
+            
             # Get Q-values from the model
             q_values = self.model.forward(board_state, player_state).detach().numpy().flatten()
 
-            # Get the full action space
-            action_space = player.get_all_actions(game.board)
-
-            if q_values.shape[0] != len(action_space):
-                print_debug(f"Warning: Q-values shape {q_values.shape} does not match action space length {len(action_space)}")
+            if q_values.shape[0] != len(self.action_space):
+                print_debug(f"Warning: Q-values shape {q_values.shape} does not match action space length {len(self.action_space)}")
 
             # Identify which actions are valid based on the current game state
-            possible_actions_ordered = []
-            valid_q_values = []
-            for i, action in enumerate(action_space):
-                if action in possible_actions:
-                    possible_actions_ordered.append(action)
-                    valid_q_values.append(q_values[i])
+            possible_actions_neutral_ordered = self.action_space.sort_actions(possible_actions_neutral)
+            valid_q_values = self.action_space.filter_array_from_possible_actions(possible_actions_neutral, q_values)
 
             # Select the action with the highest Q-value among valid actions
             if len(valid_q_values) == 0:
                 print_debug("Warning: No valid actions found based on Q-values. Defaulting to EndTurnAction.")
                 return EndTurnAction()
             action_idx = np.argmax(valid_q_values)
-            return possible_actions_ordered[action_idx]  # Exploit (best action based on Q-values)
+            return neutral_action_to_action(possible_actions_neutral_ordered[action_idx], possible_actions)  # Exploit (best action based on Q-values)
 
     def store_experience(self, state, action, reward, next_state, done):
         """Store the agent's experience in the replay buffer."""
@@ -308,7 +305,7 @@ class RL_Model:
     def train(self):
         """Train the agent based on experiences collected during the game."""
         if len(self.replay_buffer) < self.batch_size:
-            print_debug("replay buff too small"+ " Buffer size: "+str(len(self.replay_buffer))+ " Batch size:  "+ str(self.batch_size))
+            print_debug(f'replay buff too small - Buffer size: {len(self.replay_buffer)}, Batch size: {self.batch_size}')
             return  # Not enough experiences to train
 
         # Sample a random batch from the replay buffer
@@ -318,7 +315,7 @@ class RL_Model:
         # Convert to tensors
         board_states = torch.stack([s[0] for s in states])
         player_states = torch.stack([s[1] for s in states])
-        actions = torch.tensor([self.action_mapper.get_action_index(a) for a in actions], dtype=torch.long)
+        actions = torch.tensor([self.action_space.get_action_index(action_to_neutral_action(a)) for a in actions], dtype=torch.long)
         rewards = torch.tensor(rewards, dtype=torch.float32)
         next_board_states = torch.stack([s[0] for s in next_states])
         next_player_states = torch.stack([s[1] for s in next_states])
@@ -343,22 +340,3 @@ class RL_Model:
         # Update epsilon (decay exploration rate)
         self.epsilon = max(self.epsilon * self.epsilon_decay, 0.01)
         print_debug("updated epsilon:" + str(self.epsilon))
-
-
-class ActionMapper:
-    def __init__(self):
-        self.actions = [
-            "endturnaction",
-            "buildsettlementaction",
-            "buildcityaction",
-            "buildroadaction",
-            "buydevelopmentcardaction",
-            "usedevelopmentcardaction",
-            "tradeaction",
-        ]
-        self.action_to_idx = {action: idx for idx, action in enumerate(self.actions)}
-    
-    def get_action_index(self, action: Action):
-        """Convert a Catan action to an index"""
-        action_name = action.__class__.__name__.lower()
-        return self.action_to_idx.get(action_name, -1)  # Default to -1 for unknown actions

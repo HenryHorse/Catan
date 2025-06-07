@@ -1,10 +1,17 @@
 from dataclasses import dataclass
+from typing import TypeVar, Union
+from collections import Counter
 
-from catan.board import Tile, Road, Resource, DevelopmentCardType, RoadVertex
+import numpy as np
+
+from catan.board import Board, Tile, Road, Resource, DevelopmentCardType, RoadVertex
 from catan.game import Game, GamePhase
-from catan.player import Player, EndTurnAction, BuildSettlementAction, BuildCityAction, BuildRoadAction, BuyDevelopmentCardAction, UseDevelopmentCardAction, TradeAction
+from catan.player import Player, Action, EndTurnAction, BuildSettlementAction, \
+    BuildCityAction, BuildRoadAction, BuyDevelopmentCardAction, UseDevelopmentCardAction, \
+    TradeAction
+from catan.util import CubeCoordinates, print_debug
 
-from globals import DEV_MODE
+from globals import ACTION_DIM
 
 BOARD_SIZE = 5
 
@@ -85,8 +92,7 @@ class BrickRepresentation:
 
         # Get action space for player
         actions = given_player.get_all_possible_actions(game.board, game.game_phase == GamePhase.SETUP)
-        if DEV_MODE:
-            print(f"Possible actions: {actions}")
+        print_debug(f"Possible actions: {actions}")
 
         # Encode actions into player_states
         for act in actions:
@@ -198,3 +204,160 @@ class BrickRepresentation:
     def encode_all(self, given_player: Player):
         self.encode_board_recursive(self.game)
         self.encode_player_states(self.game, given_player)
+
+
+# Neutral actions carry no information about the player or game state. They are used to
+# represent actions in a neutral context so that they can be used in a shared action space.
+
+@dataclass(frozen=True)
+class NeutralEndTurnAction:
+    pass
+
+@dataclass(frozen=True)
+class NeutralBuildSettlementAction:
+    road_vertex_coords: CubeCoordinates
+
+@dataclass(frozen=True)
+class NeutralBuildCityAction:
+    road_vertex_coords: CubeCoordinates
+
+@dataclass(frozen=True)
+class NeutralBuildRoadAction:
+    endpoint_coords: tuple[CubeCoordinates, CubeCoordinates]
+
+@dataclass(frozen=True)
+class NeutralBuyDevelopmentCardAction:
+    pass
+
+@dataclass(frozen=True)
+class NeutralUseDevelopmentCardAction:
+    card_type: DevelopmentCardType
+
+@dataclass(frozen=True)
+class NeutralTradeAction:
+    giving: tuple[Resource]
+    receiving: tuple[Resource]
+
+    def simple_trade_options(giving: Resource, count: int) -> list['NeutralTradeAction']:
+        return [NeutralTradeAction((giving,) * count, (resource,)) for resource in Resource if resource != giving]
+
+
+NeutralAction = Union[
+    NeutralEndTurnAction,
+    NeutralBuildSettlementAction,
+    NeutralBuildCityAction,
+    NeutralBuildRoadAction,
+    NeutralBuyDevelopmentCardAction,
+    NeutralUseDevelopmentCardAction,
+    NeutralTradeAction
+]
+
+def action_to_neutral_action(action: Action) -> NeutralAction:
+    """Convert a Catan action to a neutral action."""
+    if isinstance(action, EndTurnAction):
+        return NeutralEndTurnAction()
+    elif isinstance(action, BuildSettlementAction):
+        return NeutralBuildSettlementAction(action.road_vertex.cube_coords)
+    elif isinstance(action, BuildCityAction):
+        return NeutralBuildCityAction(action.road_vertex.cube_coords)
+    elif isinstance(action, BuildRoadAction):
+        return NeutralBuildRoadAction((action.road.endpoints[0].cube_coords, action.road.endpoints[1].cube_coords))
+    elif isinstance(action, BuyDevelopmentCardAction):
+        return NeutralBuyDevelopmentCardAction()
+    elif isinstance(action, UseDevelopmentCardAction):
+        return NeutralUseDevelopmentCardAction(action.card.card_type)
+    elif isinstance(action, TradeAction):
+        return NeutralTradeAction(tuple(action.giving), tuple(action.receiving))
+    else:
+        raise ValueError(f"Unknown action type: {type(action)}")
+
+# TODO: more verbose errors if the action is not found in the possible actions
+def neutral_action_to_action(neutral_action: NeutralAction, possible_actions: list[Action]) -> Action:
+    """Convert a neutral action back to a Catan action."""
+    if isinstance(neutral_action, NeutralEndTurnAction):
+        return EndTurnAction()
+    elif isinstance(neutral_action, NeutralBuildSettlementAction):
+        for action in possible_actions:
+            if isinstance(action, BuildSettlementAction) and \
+                    action.road_vertex.cube_coords == neutral_action.road_vertex_coords:
+                return action
+    elif isinstance(neutral_action, NeutralBuildCityAction):
+        for action in possible_actions:
+            if isinstance(action, BuildCityAction) and \
+                    action.road_vertex.cube_coords == neutral_action.road_vertex_coords:
+                return action
+    elif isinstance(neutral_action, NeutralBuildRoadAction):
+        for action in possible_actions:
+            if isinstance(action, BuildRoadAction) and \
+                    (action.road.endpoints[0].cube_coords == neutral_action.endpoint_coords[0] and
+                     action.road.endpoints[1].cube_coords == neutral_action.endpoint_coords[1]):
+                return action
+    elif isinstance(neutral_action, NeutralBuyDevelopmentCardAction):
+        return BuyDevelopmentCardAction()
+    elif isinstance(neutral_action, NeutralUseDevelopmentCardAction):
+        for action in possible_actions:
+            if isinstance(action, UseDevelopmentCardAction) and \
+                    action.card.card_type == neutral_action.card_type:
+                return action
+    elif isinstance(neutral_action, NeutralTradeAction):
+        for action in possible_actions:
+            if isinstance(action, TradeAction) and \
+                    (Counter(action.giving) == Counter(neutral_action.giving) and
+                     Counter(action.receiving) == Counter(neutral_action.receiving)):
+                return action
+    raise ValueError(f"Unknown neutral action type: {type(neutral_action)}")
+
+T = TypeVar('T')
+
+class ActionSpace:
+    actions: list[NeutralAction]
+    action_to_idx: dict[NeutralAction, int]
+
+    def __init__(self, board: Board):
+        actions: list[NeutralAction] = [NeutralEndTurnAction()]
+        actions.extend(NeutralBuildSettlementAction(road_vertex.cube_coords) for road_vertex in board.road_vertices.values())
+        actions.extend(NeutralBuildCityAction(road_vertex.cube_coords) for road_vertex in board.road_vertices.values())
+        actions.extend(NeutralBuildRoadAction((road.endpoints[0].cube_coords, road.endpoints[1].cube_coords)) for road in board.roads)
+        actions.append(NeutralBuyDevelopmentCardAction())
+        actions.extend(NeutralUseDevelopmentCardAction(card_type) for card_type in DevelopmentCardType if card_type != DevelopmentCardType.VICTORY_POINT)
+        for resource in Resource:
+            actions.extend(NeutralTradeAction.simple_trade_options(resource, 4))
+            actions.extend(NeutralTradeAction.simple_trade_options(resource, 3))
+            actions.extend(NeutralTradeAction.simple_trade_options(resource, 2))
+        
+        if len(actions) != ACTION_DIM:
+            print_debug(f'Warning: Expected {ACTION_DIM} actions, got {len(actions)}')
+
+        self.actions = actions
+        self.action_to_idx = {action: idx for idx, action in enumerate(actions)}
+    
+    def __len__(self) -> int:
+        """Return the number of actions in the action space."""
+        return len(self.actions)
+    
+    def get_action_index(self, action: NeutralAction) -> int:
+        """Convert a Catan action to an index"""
+        if action not in self.action_to_idx:
+            print_debug(f"Warning: Action {action} not found in action space.")
+        return self.action_to_idx[action]
+    
+    def filter_list_from_possible_actions(self, possible_actions: list[NeutralAction], original_list: list[T]) -> list[T]:
+        """Filter a list of any arbitrary type based on the possible actions"""
+        if len(original_list) != len(self.actions):
+            print_debug(f"Warning: Original list length {len(original_list)} does not match actions length {len(self.actions)}")
+        return [item for item, action in zip(original_list, self.actions) if action in possible_actions]
+    
+    def filter_array_from_possible_actions(self, possible_actions: list[NeutralAction], original_array: np.ndarray) -> np.ndarray:
+        """Filter a numpy array based on the possible actions"""
+        filtered_list = self.filter_list_from_possible_actions(possible_actions, original_array.tolist())
+        return np.array(filtered_list)
+    
+    def sort_actions(self, possible_actions: list[NeutralAction]) -> list[NeutralAction]:
+        """Sort the actions based on the order in the action space"""
+        return [action for action in self.actions if action in possible_actions]
+    
+    def debug_actions(self):
+        """Logs all actions in the action space as debug information."""
+        for idx, action in enumerate(self.actions):
+            print_debug(f"Action {idx}: {action}")
+        print_debug(f"Total actions: {len(self.actions)}")

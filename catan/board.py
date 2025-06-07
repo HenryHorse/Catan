@@ -130,6 +130,9 @@ class Tile:
     
     def __hash__(self) -> int:
         return hash(self.cube_coords)
+    
+    def __repr__(self) -> str:
+        return f'Tile(cube_coords={self.cube_coords}, resource={self.resource}, number={self.number}, has_robber={self.has_robber})'
 
     def get_screen_position(self, hex_radius: float) -> Point:
         return self.cube_coords.to_cartesian() * hex_radius
@@ -183,7 +186,7 @@ class RoadVertex:
         return hash((self.parent_tile.cube_coords, self.index_on_parent))
 
     def __repr__(self) -> str:
-        return f'RoadVertex(harbor={self.harbor}, owner={self.owner}, has_settlement={self.has_settlement}, has_city={self.has_city})'
+        return f'RoadVertex(cube_coords={self.cube_coords}, harbor={self.harbor}, owner={self.owner}, has_settlement={self.has_settlement}, has_city={self.has_city})'
     
     def get_screen_position(self, hex_radius: float) -> Point:
         return self.cube_coords.to_cartesian() * hex_radius

@@ -355,24 +355,6 @@ class Player:
                 actions.extend(TradeAction.simple_trade_options(resource, 4))
         return actions
     
-    def get_all_actions(self, board: Board) -> list[Action]:
-        actions: list[Action] = [EndTurnAction()]
-        actions.extend(BuildSettlementAction(road_vertex) for road_vertex in board.road_vertices.values())
-        actions.extend(BuildCityAction(road_vertex) for road_vertex in board.road_vertices.values())
-        actions.extend(BuildRoadAction(road) for road in board.roads)
-        actions.append(BuyDevelopmentCardAction())
-        development_cards = [DevelopmentCard(card_type, False) for card_type in DevelopmentCardType if card_type != DevelopmentCardType.VICTORY_POINT]
-        actions.extend(UseDevelopmentCardAction(card) for card in development_cards)
-        for resource in Resource:
-            actions.extend(TradeAction.simple_trade_options(resource, 4))
-            actions.extend(TradeAction.simple_trade_options(resource, 3))
-            actions.extend(TradeAction.simple_trade_options(resource, 2))
-        
-        if len(actions) != ACTION_DIM:
-            print_debug(f'Warning: Expected {ACTION_DIM} actions, got {len(actions)}')
-
-        return actions
-    
     # returns whether the player has ended their turn
     def perform_action(self, action: Action, board: Board, game: 'Game') -> Action:
         print_debug(f'Player {self.index + 1} performs action {action}')
